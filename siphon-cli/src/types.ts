@@ -63,6 +63,17 @@ export interface ContentIdea {
   suggestedFormat: "video" | "blog" | "thread" | "newsletter";
 }
 
+export interface Session {
+  id: string;
+  startTime: Date;
+  endTime: Date;
+  durationMinutes: number;
+  events: Event[];
+  clusters: Cluster[];
+  gapBeforeMinutes?: number;
+  description?: string;
+}
+
 export interface AnalysisResult {
   timeRange: {
     start: Date;
@@ -71,6 +82,7 @@ export interface AnalysisResult {
   };
   events: Event[];
   clusters: Cluster[];
+  sessions: Session[];
   ideas: ContentIdea[];
   summary: {
     totalEvents: number;
@@ -79,5 +91,7 @@ export interface AnalysisResult {
     struggleScore: number;
     topTopics: Array<{ topic: string; count: number; timeMinutes: number }>;
     ahaMonments: Array<{ description: string; timestamp: Date }>;
+    sessionCount: number;
+    averageSessionMinutes: number;
   };
 }
