@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::info;
 
+use crate::redact::redact_command;
 use crate::storage::{EditorEventData, EventSource, ShellEventData};
 use crate::AppState;
 
@@ -46,11 +47,33 @@ pub async fn ingest_shell_event(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ShellEventRequest>,
 ) -> impl IntoResponse {
+    // Redact sensitive information from command
+    let redaction_result = redact_command(&payload.command);
+
+    // If command should be skipped entirely (e.g., password manager commands), return success without storing
+    let redacted_command = match redaction_result.command {
+        Some(cmd) => cmd,
+        None => {
+            info!("Skipped sensitive command (not stored)");
+            return (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "id": null, "skipped": true })),
+            );
+        }
+    };
+
+    if redaction_result.was_redacted {
+        info!(
+            "Redacted {} sensitive pattern(s) from command",
+            redaction_result.redaction_count
+        );
+    }
+
     // Detect project from cwd
     let project = detect_project(&payload.cwd);
 
     let event_data = ShellEventData {
-        command: payload.command.clone(),
+        command: redacted_command.clone(),
         exit_code: payload.exit_code,
         duration_ms: payload.duration_ms,
         cwd: payload.cwd.clone(),
@@ -72,7 +95,7 @@ pub async fn ingest_shell_event(
         Ok(id) => {
             info!(
                 "Recorded shell event: {} (exit: {}, duration: {}ms)",
-                truncate_command(&payload.command),
+                truncate_command(&redacted_command),
                 payload.exit_code,
                 payload.duration_ms
             );

@@ -9,6 +9,7 @@ Command-line tool for analyzing developer activity and generating content ideas.
 - **Summary** - Human-readable session summaries
 - **Struggle Score** - Detect debugging intensity for content potential
 - **Aha Moments** - Identify breakthrough moments after failures
+- **Claude Integration** - Generate polished content ideas using Claude API
 
 ## Installation
 
@@ -33,7 +34,29 @@ siphon capture --time 4h --topic kubernetes
 
 # Verbose mode with detailed breakdown
 siphon capture --time 2h --verbose
+
+# Generate polished content ideas using Claude API
+siphon capture --time 2h --generate
 ```
+
+### Claude API Integration
+
+The `--generate` flag uses Claude to create polished content ideas from your session data:
+
+```bash
+# Set your API key
+export ANTHROPIC_API_KEY=your-key-here
+
+# Generate content ideas
+siphon capture --time 2h --generate
+```
+
+This will produce:
+- 3-5 enhanced content ideas with titles, hooks, and outlines
+- Target audience suggestions
+- Key takeaways for each idea
+- Weekly theme suggestions (if patterns detected)
+- Series potential for ongoing content
 
 ### Quick Status
 

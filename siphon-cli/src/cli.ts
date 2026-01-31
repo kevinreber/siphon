@@ -24,6 +24,7 @@ program
   .description("Capture and analyze recent developer activity")
   .option("-t, --time <duration>", "Time window to analyze (e.g., 2h, 30m)", "2h")
   .option("--prompt", "Generate a Claude prompt for enhanced analysis")
+  .option("--generate", "Generate polished content ideas using Claude API")
   .option("--topic <topic>", "Focus on a specific topic")
   .option("-v, --verbose", "Show detailed event breakdown")
   .action(captureCommand);

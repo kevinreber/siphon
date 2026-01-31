@@ -4,6 +4,7 @@
 //! Runs on localhost:9847 and stores events in SQLite.
 
 mod api;
+pub mod redact;
 mod storage;
 
 use axum::{

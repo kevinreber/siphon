@@ -8,11 +8,17 @@
 import { Analyzer } from "../analyzer.js";
 import { ShellHistoryCollector } from "../collectors/shell.js";
 import { GitCollector } from "../collectors/git.js";
+import {
+  isClaudeAvailable,
+  generateWithClaude,
+  displayGeneratedContent,
+} from "../generate.js";
 import { Event } from "../types.js";
 
 interface CaptureOptions {
   time: string;
   prompt?: boolean;
+  generate?: boolean;
   topic?: string;
   verbose?: boolean;
 }
@@ -99,6 +105,28 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
     console.log("CLAUDE PROMPT");
     console.log("=".repeat(60) + "\n");
     console.log(generateClaudePrompt(result));
+  }
+
+  // Generate with Claude API if requested
+  if (options.generate) {
+    if (!isClaudeAvailable()) {
+      console.log("\n" + "=".repeat(60));
+      console.log("CLAUDE API NOT CONFIGURED");
+      console.log("=".repeat(60));
+      console.log("\nTo use --generate, set your API key:");
+      console.log("  export ANTHROPIC_API_KEY=your-key-here\n");
+      console.log("Get an API key at: https://console.anthropic.com/\n");
+      return;
+    }
+
+    try {
+      const generatedContent = await generateWithClaude(result);
+      console.log();
+      displayGeneratedContent(generatedContent);
+    } catch (err) {
+      console.error("\nFailed to generate content with Claude:");
+      console.error(err instanceof Error ? err.message : String(err));
+    }
   }
 }
 

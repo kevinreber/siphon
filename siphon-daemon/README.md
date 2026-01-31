@@ -7,6 +7,8 @@ Background service for continuous activity capture. Runs on `localhost:9847` and
 - **Event ingestion** via HTTP API from shell hooks and editor extensions
 - **SQLite storage** with automatic project detection
 - **Control CLI** (`siphon-ctl`) for querying events and stats
+- **Sensitive data redaction** - API keys, passwords, and secrets are automatically redacted before storage
+- **Multi-shell support** - Hooks for both Zsh and Bash
 
 ## Building
 
@@ -39,11 +41,40 @@ This produces two binaries:
 
 ## Shell Integration
 
-Source the shell hook in your `~/.zshrc`:
+### Zsh
+
+Add to your `~/.zshrc`:
 
 ```bash
 source /path/to/siphon-daemon/hooks/siphon-hook.zsh
 ```
+
+### Bash
+
+Add to your `~/.bashrc`:
+
+```bash
+source /path/to/siphon-daemon/hooks/siphon-hook.bash
+```
+
+### Utility Commands
+
+Both hooks provide these utility functions:
+
+- `siphon-pause` - Temporarily pause tracking
+- `siphon-resume` - Resume tracking
+- `siphon-status` - Check if daemon is running
+
+## Security
+
+The daemon automatically redacts sensitive information from commands before storage:
+
+- API keys and tokens (e.g., `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`)
+- Passwords in command flags (`-p`, `--password`)
+- Authorization headers in curl commands
+- AWS credentials, JWTs, and other secrets
+
+Password manager commands (e.g., `pass`, `1password`) are skipped entirely and not stored.
 
 ## API Endpoints
 
