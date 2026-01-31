@@ -117,7 +117,7 @@ async function generateInsights(
     if (!eventsByDay.has(dateKey)) {
       eventsByDay.set(dateKey, []);
     }
-    eventsByDay.get(dateKey)!.push(event);
+    eventsByDay.get(dateKey)?.push(event);
   }
 
   // Analyze each day
@@ -251,7 +251,7 @@ function calculateContentPotential(result: AnalysisResult): number {
 
 function detectNarratives(
   topicCounts: Map<string, { count: number; days: Set<string> }>,
-  dailyStats: DailyStats[]
+  _dailyStats: DailyStats[]
 ): Array<{ topic: string; duration: number; days: string[] }> {
   const narratives: Array<{ topic: string; duration: number; days: string[] }> = [];
 
@@ -261,9 +261,8 @@ function detectNarratives(
       const sortedDays = [...data.days].sort();
       const firstDay = new Date(sortedDays[0]);
       const lastDay = new Date(sortedDays[sortedDays.length - 1]);
-      const duration = Math.ceil(
-        (lastDay.getTime() - firstDay.getTime()) / (24 * 60 * 60 * 1000)
-      ) + 1;
+      const duration =
+        Math.ceil((lastDay.getTime() - firstDay.getTime()) / (24 * 60 * 60 * 1000)) + 1;
 
       narratives.push({
         topic,
@@ -306,7 +305,9 @@ function displayInsights(insights: WeeklyInsights, verbose?: boolean): void {
   console.log(chalk.bold('🔄 Trend'));
   console.log(chalk.gray('─'.repeat(40)));
   console.log(`Productivity: ${trendEmoji} ${trendColor(insights.productivityTrend)}`);
-  console.log(`Best Day: ${chalk.green(insights.bestDay.date)} (${insights.bestDay.events} events)`);
+  console.log(
+    `Best Day: ${chalk.green(insights.bestDay.date)} (${insights.bestDay.events} events)`
+  );
   console.log(
     `Slowest Day: ${chalk.red(insights.worstDay.date)} (${insights.worstDay.events} events)`
   );
@@ -327,8 +328,7 @@ function displayInsights(insights: WeeklyInsights, verbose?: boolean): void {
     console.log(chalk.gray('─'.repeat(40)));
     for (const narrative of insights.narratives) {
       console.log(
-        `${chalk.yellow(narrative.topic)} - ${narrative.duration} days ` +
-          chalk.gray(`(${narrative.days[0]} → ${narrative.days[narrative.days.length - 1]})`)
+        `${chalk.yellow(narrative.topic)} - ${narrative.duration} days ${chalk.gray(`(${narrative.days[0]} → ${narrative.days[narrative.days.length - 1]})`)}`
       );
     }
     console.log('');
@@ -352,18 +352,21 @@ function displayInsights(insights: WeeklyInsights, verbose?: boolean): void {
     .join('');
 
   console.log(`Last 14 days: ${heatmapRow}`);
-  console.log(chalk.gray('             ' + insights.dailyStats.slice(-14).map(d => d.date.slice(-2)).join('')));
+  console.log(
+    chalk.gray(
+      `             ${insights.dailyStats
+        .slice(-14)
+        .map((d) => d.date.slice(-2))
+        .join('')}`
+    )
+  );
   console.log('');
 
   // Verbose daily breakdown
   if (verbose) {
     console.log(chalk.bold('📊 Daily Breakdown'));
     console.log(chalk.gray('─'.repeat(60)));
-    console.log(
-      chalk.gray(
-        'Date       | Events | Commands | Struggle | Potential | Topics'
-      )
-    );
+    console.log(chalk.gray('Date       | Events | Commands | Struggle | Potential | Topics'));
     console.log(chalk.gray('─'.repeat(60)));
 
     for (const day of insights.dailyStats.slice(-14)) {
@@ -388,11 +391,13 @@ function displayInsights(insights: WeeklyInsights, verbose?: boolean): void {
   }
 
   if (insights.avgStruggleScore > 40) {
-    console.log(`• High struggle score suggests good debugging content opportunities`);
+    console.log('• High struggle score suggests good debugging content opportunities');
   }
 
   if (insights.contentPotentialScore > 60) {
-    console.log(`• ${chalk.green('High content potential!')} Run 'siphon capture --generate' to get ideas`);
+    console.log(
+      `• ${chalk.green('High content potential!')} Run 'siphon capture --generate' to get ideas`
+    );
   }
 
   if (insights.productivityTrend === 'decreasing') {

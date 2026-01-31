@@ -21,8 +21,8 @@ pub struct DedupConfig {
 impl Default for DedupConfig {
     fn default() -> Self {
         Self {
-            window: Duration::from_secs(2),       // 2 second window
-            max_entries: 10000,                    // Max 10k entries
+            window: Duration::from_secs(2),            // 2 second window
+            max_entries: 10000,                        // Max 10k entries
             cleanup_interval: Duration::from_secs(60), // Cleanup every minute
         }
     }

@@ -5,9 +5,15 @@
  * that can be filled with analysis data.
  */
 
-import type { AnalysisResult, Cluster, ContentIdea } from './types.js';
+import type { AnalysisResult, Cluster } from './types.js';
 
-export type ContentFormat = 'twitter_thread' | 'blog_post' | 'video_script' | 'newsletter' | 'linkedin_post' | 'tutorial';
+export type ContentFormat =
+  | 'twitter_thread'
+  | 'blog_post'
+  | 'video_script'
+  | 'newsletter'
+  | 'linkedin_post'
+  | 'tutorial';
 
 export interface ContentTemplate {
   format: ContentFormat;
@@ -37,7 +43,7 @@ export function getTemplates(): ContentTemplate[] {
  * Get template by format
  */
 export function getTemplate(format: ContentFormat): ContentTemplate | undefined {
-  return getTemplates().find(t => t.format === format);
+  return getTemplates().find((t) => t.format === format);
 }
 
 /**
@@ -115,7 +121,7 @@ ${idea?.hook || '[Share the main lesson]'}
 Like & RT if this helped 🙏
 
 #${topic.replace(/\s+/g, '')} #coding #webdev #programming`;
-  }
+  },
 };
 
 const blogPostTemplate: ContentTemplate = {
@@ -222,8 +228,11 @@ Share your experience (${duration} minutes of work, ${struggle}% struggle score)
 
 ---
 
-**Tags:** ${topic}, tutorial, ${result.summary.topTopics.slice(1, 4).map(t => t.topic).join(', ')}`;
-  }
+**Tags:** ${topic}, tutorial, ${result.summary.topTopics
+      .slice(1, 4)
+      .map((t) => t.topic)
+      .join(', ')}`;
+  },
 };
 
 const videoScriptTemplate: ContentTemplate = {
@@ -371,7 +380,7 @@ In this video, I show you how to [brief description].
 [paste chapter markers]
 
 #${topic.replace(/\s+/g, '')} #programming #tutorial`;
-  }
+  },
 };
 
 const newsletterTemplate: ContentTemplate = {
@@ -385,7 +394,7 @@ const newsletterTemplate: ContentTemplate = {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
 
     return `# 📬 Dev Insights Weekly
@@ -402,19 +411,23 @@ This week I spent ${result.timeRange.durationMinutes} minutes deep in code, and 
 
 ## 🎯 This Week's Focus
 
-${topics.map(t => `**${t.topic}** - ${t.count} activities over ${t.timeMinutes} minutes`).join('\n')}
+${topics.map((t) => `**${t.topic}** - ${t.count} activities over ${t.timeMinutes} minutes`).join('\n')}
 
 ---
 
 ## 💡 Key Insights
 
-${ideas.map((idea, i) => `### ${i + 1}. ${idea.title}
+${ideas
+  .map(
+    (idea, i) => `### ${i + 1}. ${idea.title}
 
 ${idea.hook}
 
 **Format:** ${idea.suggestedFormat} | **Confidence:** ${idea.confidence}
 
-`).join('\n')}
+`
+  )
+  .join('\n')}
 
 ---
 
@@ -422,9 +435,11 @@ ${idea.hook}
 
 Difficulty score: **${result.summary.struggleScore}%**
 
-${result.summary.struggleScore > 50
-  ? "It was a tough week! But struggle leads to growth. Here's what made it challenging..."
-  : "Relatively smooth sailing this week. Here's what went well..."}
+${
+  result.summary.struggleScore > 50
+    ? "It was a tough week! But struggle leads to growth. Here's what made it challenging..."
+    : "Relatively smooth sailing this week. Here's what went well..."
+}
 
 [Share your biggest challenge and how you overcame it]
 
@@ -467,7 +482,7 @@ Happy coding,
 *Was this forwarded to you? [Subscribe here](#)*
 
 *Too many emails? [Manage preferences](#)*`;
-  }
+  },
 };
 
 const linkedInTemplate: ContentTemplate = {
@@ -483,7 +498,7 @@ const linkedInTemplate: ContentTemplate = {
 Here's what happened:
 
 I was working on ${topic} when I ran into a wall.
-${result.summary.struggleScore > 50 ? '(Struggle score: ' + result.summary.struggleScore + '% - it was rough!)' : ''}
+${result.summary.struggleScore > 50 ? `(Struggle score: ${result.summary.struggleScore}% - it was rough!)` : ''}
 
 After ${result.timeRange.durationMinutes} minutes of debugging, I discovered:
 
@@ -505,7 +520,7 @@ ${idea?.evidence[0] || '[Your main conclusion]'}
 What's the last technical challenge that taught you something unexpected?
 
 #${topic.replace(/\s+/g, '')} #SoftwareEngineering #Programming #CodingLife #TechTips`;
-  }
+  },
 };
 
 const tutorialTemplate: ContentTemplate = {
@@ -626,7 +641,7 @@ Final polish for production use.
 ---
 
 *Questions? Leave a comment below!*`;
-  }
+  },
 };
 
 // Additional specialized templates
@@ -706,7 +721,7 @@ After ${result.timeRange.durationMinutes} minutes, I finally realized...
 ---
 
 *Have you encountered something similar? Share your debugging war stories in the comments!*`;
-  }
+  },
 };
 
 const beforeAfterTemplate: ContentTemplate = {
@@ -762,7 +777,7 @@ Why it matters:
 Save this for later! 🔖
 
 #${topic.replace(/\s+/g, '')} #CleanCode #CodeReview`;
-  }
+  },
 };
 
 const tilTemplate: ContentTemplate = {
@@ -789,5 +804,5 @@ Why this matters:
 Source: [Where you learned this]
 
 #TIL #${topic.replace(/\s+/g, '')} #DevTips`;
-  }
+  },
 };

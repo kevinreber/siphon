@@ -6,8 +6,7 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import type { AnalysisResult, ContentIdea } from './types.js';
+import type { AnalysisResult } from './types.js';
 
 export interface ExportOptions {
   format: 'markdown' | 'obsidian' | 'json' | 'rss' | 'notion';
@@ -291,8 +290,7 @@ function exportToNotion(result: AnalysisResult, options: ExportOptions): string 
     lines.push('');
 
     for (const idea of result.ideas) {
-      const emoji =
-        idea.confidence === 'high' ? '🟢' : idea.confidence === 'medium' ? '🟡' : '🔴';
+      const emoji = idea.confidence === 'high' ? '🟢' : idea.confidence === 'medium' ? '🟡' : '🔴';
       const formatEmoji =
         {
           video: '🎬',

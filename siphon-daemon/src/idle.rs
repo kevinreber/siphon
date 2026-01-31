@@ -20,7 +20,7 @@ pub struct IdleConfig {
 impl Default for IdleConfig {
     fn default() -> Self {
         Self {
-            idle_threshold: Duration::from_secs(5 * 60),        // 5 minutes
+            idle_threshold: Duration::from_secs(5 * 60), // 5 minutes
             session_end_threshold: Duration::from_secs(30 * 60), // 30 minutes
         }
     }

@@ -32,7 +32,8 @@ impl Default for TriggerConfig {
             obs_integration: false,
             obs_websocket_url: "ws://localhost:4455".to_string(),
             screenshot_enabled: false,
-            screenshot_command: "screencapture -x ~/siphon-screenshots/$(date +%Y%m%d_%H%M%S).png".to_string(),
+            screenshot_command: "screencapture -x ~/siphon-screenshots/$(date +%Y%m%d_%H%M%S).png"
+                .to_string(),
         }
     }
 }
@@ -78,11 +79,12 @@ pub struct TriggerContext {
 
 /// Command result for tracking
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CommandResult {
     command: String,
     exit_code: i32,
     timestamp: Instant,
-    duration_ms: u64,
+    duration_ms: u64, // Reserved for future duration-based triggers
 }
 
 /// Trigger detector
@@ -200,7 +202,8 @@ impl TriggerDetector {
                 self.last_trigger = Some(now);
                 return Some(self.create_trigger_event(
                     TriggerType::StruggleMoment,
-                    format!("{} failures in the last {} minutes",
+                    format!(
+                        "{} failures in the last {} minutes",
                         recent_failure_count,
                         self.config.failure_window_secs / 60
                     ),
@@ -215,7 +218,11 @@ impl TriggerDetector {
             self.last_trigger = Some(now);
             return Some(self.create_trigger_event(
                 TriggerType::LongOperation,
-                format!("{} completed after {:.1}s", command_base, duration_ms as f64 / 1000.0),
+                format!(
+                    "{} completed after {:.1}s",
+                    command_base,
+                    duration_ms as f64 / 1000.0
+                ),
                 project,
             ));
         }
@@ -289,7 +296,7 @@ impl TriggerDetector {
     }
 
     /// Execute a capture action based on trigger
-    pub fn execute_capture(&self, trigger: &TriggerEvent) -> Result<String, String> {
+    pub fn execute_capture(&self, _trigger: &TriggerEvent) -> Result<String, String> {
         if self.config.screenshot_enabled {
             // Execute screenshot command
             let output = std::process::Command::new("sh")
@@ -324,11 +331,7 @@ impl TriggerDetector {
     /// Manual trigger
     pub fn manual_trigger(&mut self, description: &str, project: Option<&str>) -> TriggerEvent {
         self.last_trigger = Some(Instant::now());
-        self.create_trigger_event(
-            TriggerType::Manual,
-            description.to_string(),
-            project,
-        )
+        self.create_trigger_event(TriggerType::Manual, description.to_string(), project)
     }
 }
 
@@ -353,8 +356,17 @@ fn extract_command_base(command: &str) -> String {
 /// Check if command is a test command
 fn is_test_command(command: &str) -> bool {
     let test_patterns = [
-        "test", "jest", "pytest", "mocha", "cargo test", "go test",
-        "npm test", "yarn test", "pnpm test", "vitest", "playwright",
+        "test",
+        "jest",
+        "pytest",
+        "mocha",
+        "cargo test",
+        "go test",
+        "npm test",
+        "yarn test",
+        "pnpm test",
+        "vitest",
+        "playwright",
     ];
     let cmd_lower = command.to_lowercase();
     test_patterns.iter().any(|p| cmd_lower.contains(p))
@@ -363,9 +375,20 @@ fn is_test_command(command: &str) -> bool {
 /// Check if command is significant (worth triggering on first use)
 fn is_significant_command(command_base: &str) -> bool {
     let significant = [
-        "docker", "kubectl", "terraform", "ansible", "helm",
-        "aws", "gcloud", "az", "cargo build", "cargo run",
-        "npm run", "yarn", "go build", "go run",
+        "docker",
+        "kubectl",
+        "terraform",
+        "ansible",
+        "helm",
+        "aws",
+        "gcloud",
+        "az",
+        "cargo build",
+        "cargo run",
+        "npm run",
+        "yarn",
+        "go build",
+        "go run",
     ];
     significant.iter().any(|s| command_base.starts_with(s))
 }
@@ -383,7 +406,11 @@ fn detect_topic_from_commands(commands: &VecDeque<CommandResult>) -> Option<Stri
         ("test", "testing"),
     ];
 
-    let all_commands: String = commands.iter().map(|c| c.command.as_str()).collect::<Vec<_>>().join(" ");
+    let all_commands: String = commands
+        .iter()
+        .map(|c| c.command.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
     let cmd_lower = all_commands.to_lowercase();
 
     for (pattern, topic) in topics {
@@ -419,7 +446,10 @@ mod tests {
         // Success after failures should trigger breakthrough
         let trigger = detector.record_command("npm test", 0, 100, None);
         assert!(trigger.is_some());
-        assert!(matches!(trigger.unwrap().trigger_type, TriggerType::Breakthrough));
+        assert!(matches!(
+            trigger.unwrap().trigger_type,
+            TriggerType::Breakthrough
+        ));
     }
 
     #[test]
@@ -435,7 +465,10 @@ mod tests {
         // Third failure should trigger struggle
         let trigger = detector.record_command("npm test", 1, 100, None);
         assert!(trigger.is_some());
-        assert!(matches!(trigger.unwrap().trigger_type, TriggerType::StruggleMoment));
+        assert!(matches!(
+            trigger.unwrap().trigger_type,
+            TriggerType::StruggleMoment
+        ));
     }
 
     #[test]

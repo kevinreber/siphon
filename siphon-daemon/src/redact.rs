@@ -140,7 +140,10 @@ pub fn redact_command(command: &str) -> RedactionResult {
     for pattern in SENSITIVE_PATTERNS.iter() {
         if pattern.regex.is_match(&result) {
             let before = result.clone();
-            result = pattern.regex.replace_all(&result, &pattern.replacement).to_string();
+            result = pattern
+                .regex
+                .replace_all(&result, &pattern.replacement)
+                .to_string();
             if result != before {
                 redaction_count += 1;
             }
@@ -201,7 +204,8 @@ mod tests {
 
     #[test]
     fn test_github_token_redaction() {
-        let result = redact_command("GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx git push");
+        let result =
+            redact_command("GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx git push");
         assert!(result.was_redacted);
         assert!(!result.command.unwrap().contains("ghp_"));
     }

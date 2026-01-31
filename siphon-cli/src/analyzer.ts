@@ -370,8 +370,10 @@ export class Analyzer {
 
     if (event.source === 'editor') {
       // Detect language from file path
-      const filePath = (event.data as { filePath?: string; file_path?: string }).filePath ||
-        (event.data as { filePath?: string; file_path?: string }).file_path || '';
+      const filePath =
+        (event.data as { filePath?: string; file_path?: string }).filePath ||
+        (event.data as { filePath?: string; file_path?: string }).file_path ||
+        '';
       const ext = filePath.split('.').pop()?.toLowerCase();
 
       const extToTopic: Record<string, string> = {

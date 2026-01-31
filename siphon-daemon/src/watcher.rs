@@ -48,9 +48,10 @@ const IGNORE_PATTERNS: &[&str] = &[
 
 /// File extensions that indicate source code
 const SOURCE_EXTENSIONS: &[&str] = &[
-    "rs", "ts", "tsx", "js", "jsx", "py", "go", "java", "c", "cpp", "h", "hpp", "rb", "php", "swift",
-    "kt", "scala", "lua", "vim", "sh", "bash", "zsh", "fish", "sql", "graphql", "yaml", "yml",
-    "json", "toml", "xml", "html", "css", "scss", "sass", "less", "md", "mdx", "vue", "svelte",
+    "rs", "ts", "tsx", "js", "jsx", "py", "go", "java", "c", "cpp", "h", "hpp", "rb", "php",
+    "swift", "kt", "scala", "lua", "vim", "sh", "bash", "zsh", "fish", "sql", "graphql", "yaml",
+    "yml", "json", "toml", "xml", "html", "css", "scss", "sass", "less", "md", "mdx", "vue",
+    "svelte",
 ];
 
 /// File system watcher configuration
@@ -96,8 +97,8 @@ impl FileWatcher {
     pub fn start(&mut self) -> Result<(), notify::Error> {
         let (tx, rx) = mpsc::channel();
 
-        let watcher_config = Config::default()
-            .with_poll_interval(Duration::from_millis(self.config.debounce_ms));
+        let watcher_config =
+            Config::default().with_poll_interval(Duration::from_millis(self.config.debounce_ms));
 
         let mut watcher = RecommendedWatcher::new(
             move |res| {
@@ -229,9 +230,8 @@ impl FileWatcher {
     /// Check if a path should be ignored
     fn should_ignore(&self, path: &str) -> bool {
         for pattern in IGNORE_PATTERNS {
-            if pattern.starts_with('*') {
+            if let Some(ext) = pattern.strip_prefix('*') {
                 // Extension pattern
-                let ext = &pattern[1..];
                 if path.ends_with(ext) {
                     return true;
                 }

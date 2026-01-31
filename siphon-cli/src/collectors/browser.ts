@@ -5,10 +5,10 @@
  * to detect research and documentation browsing sessions.
  */
 
-import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import Database from 'better-sqlite3';
 import type { Event } from '../types.js';
 
 export interface BrowserEventData {
@@ -191,7 +191,7 @@ export class BrowserHistoryCollector {
       try {
         const chromeEvents = await this.collectChrome(startTime, endTime, filterDevOnly);
         events.push(...chromeEvents);
-      } catch (error) {
+      } catch (_error) {
         // Chrome history might be locked if browser is open
         // Silently continue
       }
@@ -202,7 +202,7 @@ export class BrowserHistoryCollector {
       try {
         const firefoxEvents = await this.collectFirefox(startTime, endTime, filterDevOnly);
         events.push(...firefoxEvents);
-      } catch (error) {
+      } catch (_error) {
         // Firefox history might be locked if browser is open
         // Silently continue
       }

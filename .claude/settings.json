@@ -1,0 +1,32 @@
+{
+  "$schema": "https://claude.ai/code/settings-schema.json",
+  "hooks": {
+    "pre-commit": [
+      {
+        "name": "TypeScript Type Check",
+        "command": "cd siphon-cli && npm run typecheck",
+        "description": "Run TypeScript type checking before commit"
+      },
+      {
+        "name": "Biome Lint & Format",
+        "command": "cd siphon-cli && npx biome check src",
+        "description": "Run Biome linting and formatting checks"
+      },
+      {
+        "name": "Rust Cargo Check",
+        "command": "cd siphon-daemon && cargo check",
+        "description": "Run Rust cargo check"
+      },
+      {
+        "name": "Rust Format Check",
+        "command": "cd siphon-daemon && cargo fmt --check",
+        "description": "Check Rust code formatting"
+      },
+      {
+        "name": "Rust Clippy",
+        "command": "cd siphon-daemon && cargo clippy -- -D warnings",
+        "description": "Run Rust clippy linter"
+      }
+    ]
+  }
+}

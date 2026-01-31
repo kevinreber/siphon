@@ -1,16 +1,8 @@
-/**
- * Export Command
- *
- * Exports analysis results to various formats including
- * Markdown, JSON, RSS, Obsidian, and Notion.
- */
-
-import * as path from 'node:path';
 import { Analyzer } from '../analyzer.js';
 import { BrowserHistoryCollector } from '../collectors/browser.js';
 import { GitCollector } from '../collectors/git.js';
 import { ShellHistoryCollector } from '../collectors/shell.js';
-import { exportResults, generateObsidianDailyEntry, type ExportOptions } from '../export.js';
+import { type ExportOptions, exportResults, generateObsidianDailyEntry } from '../export.js';
 import type { Event } from '../types.js';
 
 interface ExportCommandOptions {

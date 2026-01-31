@@ -14,7 +14,7 @@ use tracing::info;
 use crate::dedup::EventKey;
 use crate::redact::redact_command;
 use crate::storage::{EditorEventData, EventSource, ShellEventData};
-use crate::watcher::{FileEventData, WatcherConfig, FileWatcher};
+use crate::watcher::{FileEventData, FileWatcher, WatcherConfig};
 use crate::AppState;
 
 /// Health check response
@@ -34,6 +34,7 @@ pub async fn health() -> Json<HealthResponse> {
 
 /// Shell event request body
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct ShellEventRequest {
     pub command: String,
     pub exit_code: i32,
@@ -42,7 +43,7 @@ pub struct ShellEventRequest {
     #[serde(default)]
     pub git_branch: Option<String>,
     #[serde(default)]
-    pub timestamp: Option<String>,
+    pub timestamp: Option<String>, // Reserved for custom timestamps
 }
 
 /// Ingest shell event
@@ -112,8 +113,12 @@ pub async fn ingest_shell_event(
     };
 
     let store = state.store.lock().unwrap();
-    match store.insert_event(EventSource::Shell, event_type, &event_data_json, project.as_deref())
-    {
+    match store.insert_event(
+        EventSource::Shell,
+        event_type,
+        &event_data_json,
+        project.as_deref(),
+    ) {
         Ok(id) => {
             info!(
                 "Recorded shell event: {} (exit: {}, duration: {}ms)",
@@ -188,7 +193,10 @@ pub async fn ingest_editor_event(
         project.as_deref(),
     ) {
         Ok(id) => {
-            info!("Recorded editor event: {} on {}", payload.action, payload.file_path);
+            info!(
+                "Recorded editor event: {} on {}",
+                payload.action, payload.file_path
+            );
             (StatusCode::CREATED, Json(serde_json::json!({ "id": id })))
         }
         Err(e) => {
@@ -255,7 +263,10 @@ pub async fn ingest_filesystem_event(
         project.as_deref(),
     ) {
         Ok(id) => {
-            info!("Recorded filesystem event: {} on {}", payload.action, payload.file_path);
+            info!(
+                "Recorded filesystem event: {} on {}",
+                payload.action, payload.file_path
+            );
             (StatusCode::CREATED, Json(serde_json::json!({ "id": id })))
         }
         Err(e) => {
@@ -416,13 +427,14 @@ pub async fn get_session_info(State(state): State<Arc<AppState>>) -> impl IntoRe
 
 /// Query parameters for events endpoint
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct EventsQuery {
     #[serde(default = "default_hours")]
     pub hours: u32,
     #[serde(default)]
-    pub source: Option<String>,
+    pub source: Option<String>, // Reserved for source filtering
     #[serde(default)]
-    pub project: Option<String>,
+    pub project: Option<String>, // Reserved for project filtering
 }
 
 fn default_hours() -> u32 {
@@ -436,7 +448,10 @@ pub async fn get_events(
 ) -> impl IntoResponse {
     let store = state.store.lock().unwrap();
     match store.get_recent_events(query.hours) {
-        Ok(events) => (StatusCode::OK, Json(serde_json::json!({ "events": events }))),
+        Ok(events) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "events": events })),
+        ),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
@@ -445,12 +460,13 @@ pub async fn get_events(
 }
 
 /// Get recent events (last 2 hours by default)
-pub async fn get_recent_events(
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
+pub async fn get_recent_events(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let store = state.store.lock().unwrap();
     match store.get_recent_events(2) {
-        Ok(events) => (StatusCode::OK, Json(serde_json::json!({ "events": events }))),
+        Ok(events) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "events": events })),
+        ),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),

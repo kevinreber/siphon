@@ -54,7 +54,11 @@ program
   .command('export')
   .description('Export analysis results to various formats')
   .option('-t, --time <duration>', 'Time window to analyze (e.g., 2h, 1d)', '4h')
-  .option('-f, --format <format>', 'Output format: markdown, obsidian, json, rss, notion', 'markdown')
+  .option(
+    '-f, --format <format>',
+    'Output format: markdown, obsidian, json, rss, notion',
+    'markdown'
+  )
   .option('-o, --output <path>', 'Output file path')
   .option('--daily', 'Generate Obsidian daily note entry')
   .option('-v, --verbose', 'Include detailed analysis')

@@ -202,10 +202,9 @@ export class GitCollector {
       if (!from) return null;
 
       // Get diff stats
-      const numstatOutput = execSync(
-        `git diff --numstat ${from}..${to} 2>/dev/null`,
-        { encoding: 'utf-8' }
-      );
+      const numstatOutput = execSync(`git diff --numstat ${from}..${to} 2>/dev/null`, {
+        encoding: 'utf-8',
+      });
 
       const files: DiffStats['files'] = [];
       let totalInsertions = 0;
@@ -217,8 +216,8 @@ export class GitCollector {
         const [ins, del, path] = line.split('\t');
 
         // Handle binary files
-        const insertions = ins === '-' ? 0 : parseInt(ins, 10);
-        const deletions = del === '-' ? 0 : parseInt(del, 10);
+        const insertions = ins === '-' ? 0 : Number.parseInt(ins, 10);
+        const deletions = del === '-' ? 0 : Number.parseInt(del, 10);
 
         totalInsertions += insertions;
         totalDeletions += deletions;
@@ -243,10 +242,9 @@ export class GitCollector {
 
       // Get name-status for accurate status detection
       try {
-        const nameStatusOutput = execSync(
-          `git diff --name-status ${from}..${to} 2>/dev/null`,
-          { encoding: 'utf-8' }
-        );
+        const nameStatusOutput = execSync(`git diff --name-status ${from}..${to} 2>/dev/null`, {
+          encoding: 'utf-8',
+        });
 
         const statusMap = new Map<string, string>();
         for (const line of nameStatusOutput.trim().split('\n')) {
@@ -267,7 +265,7 @@ export class GitCollector {
       }
 
       // Sort by changes (most changed first)
-      files.sort((a, b) => (b.insertions + b.deletions) - (a.insertions + a.deletions));
+      files.sort((a, b) => b.insertions + b.deletions - (a.insertions + a.deletions));
 
       const stats: DiffStats = {
         filesChanged: files.length,
@@ -284,7 +282,7 @@ export class GitCollector {
         toCommit: to,
         stats,
         summary,
-        topChangedFiles: files.slice(0, 10).map(f => f.path),
+        topChangedFiles: files.slice(0, 10).map((f) => f.path),
         languageBreakdown,
       };
     } catch {
@@ -297,10 +295,9 @@ export class GitCollector {
    */
   private getCommitFromHoursAgo(hours: number): string | null {
     try {
-      const output = execSync(
-        `git rev-list -1 --before="${hours} hours ago" HEAD 2>/dev/null`,
-        { encoding: 'utf-8' }
-      ).trim();
+      const output = execSync(`git rev-list -1 --before="${hours} hours ago" HEAD 2>/dev/null`, {
+        encoding: 'utf-8',
+      }).trim();
       return output || null;
     } catch {
       return null;
@@ -341,10 +338,14 @@ export class GitCollector {
       // Get unstaged changes
       const unstagedOutput = execSync('git diff --numstat 2>/dev/null', { encoding: 'utf-8' });
       // Get staged changes
-      const stagedOutput = execSync('git diff --cached --numstat 2>/dev/null', { encoding: 'utf-8' });
+      const stagedOutput = execSync('git diff --cached --numstat 2>/dev/null', {
+        encoding: 'utf-8',
+      });
 
-      const allLines = [...unstagedOutput.trim().split('\n'), ...stagedOutput.trim().split('\n')]
-        .filter(l => l);
+      const allLines = [
+        ...unstagedOutput.trim().split('\n'),
+        ...stagedOutput.trim().split('\n'),
+      ].filter((l) => l);
 
       const files: DiffStats['files'] = [];
       let totalInsertions = 0;
@@ -352,11 +353,11 @@ export class GitCollector {
 
       for (const line of allLines) {
         const [ins, del, path] = line.split('\t');
-        const insertions = ins === '-' ? 0 : parseInt(ins, 10);
-        const deletions = del === '-' ? 0 : parseInt(del, 10);
+        const insertions = ins === '-' ? 0 : Number.parseInt(ins, 10);
+        const deletions = del === '-' ? 0 : Number.parseInt(del, 10);
 
         // Check if file already tracked (avoid duplicates)
-        const existing = files.find(f => f.path === path);
+        const existing = files.find((f) => f.path === path);
         if (existing) {
           existing.insertions = Math.max(existing.insertions, insertions);
           existing.deletions = Math.max(existing.deletions, deletions);
@@ -381,7 +382,9 @@ export class GitCollector {
   /**
    * Get commits grouped by day for multi-day analysis
    */
-  getCommitsByDay(days: number): Map<string, Array<{ hash: string; message: string; timestamp: Date }>> {
+  getCommitsByDay(
+    days: number
+  ): Map<string, Array<{ hash: string; message: string; timestamp: Date }>> {
     const result = new Map<string, Array<{ hash: string; message: string; timestamp: Date }>>();
 
     try {
@@ -403,7 +406,7 @@ export class GitCollector {
         if (!result.has(dateKey)) {
           result.set(dateKey, []);
         }
-        result.get(dateKey)!.push({ hash, message, timestamp: date });
+        result.get(dateKey)?.push({ hash, message, timestamp: date });
       }
     } catch {
       // Not in git repo

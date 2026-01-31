@@ -23,7 +23,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use crate::dedup::{Deduplicator, DedupConfig};
+use crate::dedup::{DedupConfig, Deduplicator};
 use crate::idle::{IdleConfig, IdleDetector};
 use crate::storage::{EventSource, EventStore};
 use crate::watcher::{FileWatcher, WatcherConfig};
@@ -39,7 +39,7 @@ pub struct AppState {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
-    let subscriber = FmtSubscriber::builder()
+    FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_target(false)
         .init();
@@ -127,10 +127,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Ok(store) = state_clone.store.lock() {
                             for event in events {
                                 let event_json = serde_json::to_string(&event).unwrap_or_default();
-                                let project = watcher::detect_project_root(
-                                    std::path::Path::new(&event.file_path),
-                                )
-                                .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()));
+                                let project = watcher::detect_project_root(std::path::Path::new(
+                                    &event.file_path,
+                                ))
+                                .and_then(|p| {
+                                    p.file_name().map(|n| n.to_string_lossy().to_string())
+                                });
 
                                 if let Err(e) = store.insert_event(
                                     EventSource::Filesystem,
