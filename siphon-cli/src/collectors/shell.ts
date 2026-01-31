@@ -152,7 +152,7 @@ export class ShellHistoryCollector {
    */
   private detectProject(command: string): string | undefined {
     // Look for common project directory patterns in command
-    const cdMatch = command.match(/cd\s+(?:~\/)?([^\/\s]+)/);
+    const cdMatch = command.match(/cd\s+(?:~\/)?([^/\s]+)/);
     if (cdMatch) {
       return cdMatch[1];
     }

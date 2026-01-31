@@ -119,7 +119,7 @@ export class GitCollector {
       }).trim();
 
       // Extract repo name from URL
-      const match = remote.match(/\/([^\/]+?)(\.git)?$/);
+      const match = remote.match(/\/([^/]+?)(\.git)?$/);
       if (match) {
         return match[1];
       }
