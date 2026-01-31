@@ -1,0 +1,41 @@
+{
+  "name": "siphon-cli",
+  "version": "0.1.0",
+  "description": "CLI tool for Siphon - turn your dev work into content",
+  "main": "dist/cli.js",
+  "bin": {
+    "siphon": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "developer",
+    "content",
+    "productivity",
+    "activity-tracker"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0"
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "chalk": "^5.3.0",
+    "better-sqlite3": "^9.2.0",
+    "glob": "^10.3.0",
+    "dayjs": "^1.11.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
