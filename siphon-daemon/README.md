@@ -8,7 +8,8 @@ Background service for continuous activity capture. Runs on `localhost:9847` and
 - **SQLite storage** with automatic project detection
 - **Control CLI** (`siphon-ctl`) for querying events and stats
 - **Sensitive data redaction** - API keys, passwords, and secrets are automatically redacted before storage
-- **Multi-shell support** - Hooks for both Zsh and Bash
+- **Multi-shell support** - Hooks for Zsh, Bash, and Fish
+- **Automatic cleanup** - Configurable data retention with automatic cleanup on startup
 
 ## Building
 
@@ -57,9 +58,17 @@ Add to your `~/.bashrc`:
 source /path/to/siphon-daemon/hooks/siphon-hook.bash
 ```
 
+### Fish
+
+Add to your `~/.config/fish/config.fish`:
+
+```fish
+source /path/to/siphon-daemon/hooks/siphon-hook.fish
+```
+
 ### Utility Commands
 
-Both hooks provide these utility functions:
+All shell hooks provide these utility functions:
 
 - `siphon-pause` - Temporarily pause tracking
 - `siphon-resume` - Resume tracking
@@ -86,6 +95,8 @@ Password manager commands (e.g., `pass`, `1password`) are skipped entirely and n
 | GET | `/events` | Query events (params: `hours`, `source`, `project`) |
 | GET | `/events/recent` | Get events from last 2 hours |
 | GET | `/stats` | Get event statistics |
+| GET | `/storage` | Get storage info (size, event count, daily breakdown) |
+| POST | `/storage/cleanup` | Cleanup old events (params: `retention_days`, `vacuum`) |
 
 ## Event Format
 
@@ -120,4 +131,27 @@ Events are stored in `~/.siphon/events.db` (SQLite).
 SELECT * FROM events
 WHERE timestamp > datetime('now', '-2 hours')
 ORDER BY timestamp DESC;
+```
+
+## Data Retention
+
+The daemon automatically cleans up old events on startup. By default, events older than 30 days are deleted.
+
+Configure retention with the `SIPHON_RETENTION_DAYS` environment variable:
+
+```bash
+# Keep 90 days of history
+SIPHON_RETENTION_DAYS=90 ./target/release/siphon-daemon
+
+# Keep 7 days of history
+SIPHON_RETENTION_DAYS=7 ./target/release/siphon-daemon
+```
+
+Manual cleanup via API:
+
+```bash
+# Delete events older than 14 days and vacuum database
+curl -X POST http://127.0.0.1:9847/storage/cleanup \
+  -H "Content-Type: application/json" \
+  -d '{"retention_days": 14, "vacuum": true}'
 ```

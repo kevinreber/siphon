@@ -211,4 +211,76 @@ impl EventStore {
             .query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
         Ok(count)
     }
+
+    /// Delete events older than the specified number of days
+    /// Returns the number of events deleted
+    pub fn cleanup_old_events(&self, retention_days: u32) -> Result<usize> {
+        let cutoff = Utc::now() - chrono::Duration::days(retention_days as i64);
+        let cutoff_str = cutoff.to_rfc3339();
+
+        let deleted = self.conn.execute(
+            "DELETE FROM events WHERE timestamp < ?1",
+            params![cutoff_str],
+        )?;
+
+        Ok(deleted)
+    }
+
+    /// Vacuum the database to reclaim space after deletions
+    pub fn vacuum(&self) -> Result<()> {
+        self.conn.execute("VACUUM", [])?;
+        Ok(())
+    }
+
+    /// Get the database file size in bytes
+    pub fn get_db_size(&self) -> Result<u64> {
+        let metadata = std::fs::metadata(&self.db_path)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        Ok(metadata.len())
+    }
+
+    /// Get the oldest and newest event timestamps
+    pub fn get_event_time_range(&self) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>> {
+        let result: Option<(String, String)> = self.conn.query_row(
+            "SELECT MIN(timestamp), MAX(timestamp) FROM events",
+            [],
+            |row| {
+                let min: Option<String> = row.get(0)?;
+                let max: Option<String> = row.get(1)?;
+                match (min, max) {
+                    (Some(min), Some(max)) => Ok(Some((min, max))),
+                    _ => Ok(None),
+                }
+            },
+        )?;
+
+        match result {
+            Some((min, max)) => {
+                let min_dt = min.parse().unwrap_or_else(|_| Utc::now());
+                let max_dt = max.parse().unwrap_or_else(|_| Utc::now());
+                Ok(Some((min_dt, max_dt)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Get event counts grouped by day for the last N days
+    pub fn get_daily_counts(&self, days: u32) -> Result<Vec<(String, i64)>> {
+        let since = Utc::now() - chrono::Duration::days(days as i64);
+        let since_str = since.to_rfc3339();
+
+        let mut stmt = self.conn.prepare(
+            "SELECT DATE(timestamp) as day, COUNT(*) as count
+             FROM events
+             WHERE timestamp >= ?1
+             GROUP BY day
+             ORDER BY day DESC",
+        )?;
+
+        let counts = stmt
+            .query_map(params![since_str], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(counts)
+    }
 }

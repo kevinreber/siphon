@@ -12,6 +12,7 @@ import {
   ContentIdea,
   AnalysisResult,
   ShellEventData,
+  Session,
 } from "./types.js";
 
 // Topic detection keywords
@@ -51,11 +52,14 @@ export class Analyzer {
       cluster.ahaIndex = this.detectAhaMoments(cluster.events);
     }
 
+    // Detect sessions (groups of clusters separated by long gaps)
+    const sessions = this.detectSessions(sortedEvents, clusters);
+
     // Generate content ideas
     const ideas = this.generateContentIdeas(clusters);
 
     // Calculate summary
-    const summary = this.calculateSummary(sortedEvents, clusters);
+    const summary = this.calculateSummary(sortedEvents, clusters, sessions);
 
     return {
       timeRange: {
@@ -67,6 +71,7 @@ export class Analyzer {
       },
       events: sortedEvents,
       clusters,
+      sessions,
       ideas,
       summary,
     };
@@ -114,6 +119,120 @@ export class Analyzer {
     }
 
     return clusters;
+  }
+
+  /**
+   * Detect work sessions based on gaps in activity
+   * A session is a continuous period of work separated by gaps of 2+ hours
+   */
+  private detectSessions(events: Event[], clusters: Cluster[]): Session[] {
+    if (events.length === 0) return [];
+
+    const SESSION_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const sessions: Session[] = [];
+
+    let currentSessionEvents: Event[] = [];
+    let sessionStart: Date | null = null;
+    let lastEventTime: Date | null = null;
+
+    for (const event of events) {
+      const gapMs = lastEventTime
+        ? event.timestamp.getTime() - lastEventTime.getTime()
+        : 0;
+
+      if (gapMs > SESSION_GAP_MS && currentSessionEvents.length > 0) {
+        // End current session and start a new one
+        const session = this.createSession(
+          currentSessionEvents,
+          clusters,
+          sessionStart!,
+          lastEventTime!,
+          sessions.length > 0 ? Math.round(gapMs / 60000) : undefined
+        );
+        sessions.push(session);
+        currentSessionEvents = [];
+        sessionStart = null;
+      }
+
+      if (sessionStart === null) {
+        sessionStart = event.timestamp;
+      }
+      currentSessionEvents.push(event);
+      lastEventTime = event.timestamp;
+    }
+
+    // Save final session
+    if (currentSessionEvents.length > 0 && sessionStart && lastEventTime) {
+      sessions.push(
+        this.createSession(
+          currentSessionEvents,
+          clusters,
+          sessionStart,
+          lastEventTime,
+          undefined
+        )
+      );
+    }
+
+    return sessions;
+  }
+
+  /**
+   * Create a session from events
+   */
+  private createSession(
+    events: Event[],
+    allClusters: Cluster[],
+    startTime: Date,
+    endTime: Date,
+    gapBeforeMinutes?: number
+  ): Session {
+    const durationMinutes = Math.round(
+      (endTime.getTime() - startTime.getTime()) / 60000
+    );
+
+    // Find clusters that overlap with this session
+    const sessionClusters = allClusters.filter(
+      (c) => c.startTime >= startTime && c.endTime <= endTime
+    );
+
+    // Generate a description based on the clusters
+    const topTopics = this.getTopTopicsFromClusters(sessionClusters, 3);
+    const description =
+      topTopics.length > 0
+        ? `Working on ${topTopics.join(", ")}`
+        : "Development session";
+
+    return {
+      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      startTime,
+      endTime,
+      durationMinutes,
+      events,
+      clusters: sessionClusters,
+      gapBeforeMinutes,
+      description,
+    };
+  }
+
+  /**
+   * Get top topics from clusters
+   */
+  private getTopTopicsFromClusters(clusters: Cluster[], limit: number): string[] {
+    const topicCounts = new Map<string, number>();
+    for (const cluster of clusters) {
+      if (cluster.topic !== "general") {
+        topicCounts.set(
+          cluster.topic,
+          (topicCounts.get(cluster.topic) || 0) + cluster.events.length
+        );
+      }
+    }
+
+    return [...topicCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([topic]) => topic);
   }
 
   /**
@@ -354,7 +473,7 @@ export class Analyzer {
   /**
    * Calculate summary statistics
    */
-  private calculateSummary(events: Event[], clusters: Cluster[]) {
+  private calculateSummary(events: Event[], clusters: Cluster[], sessions: Session[]) {
     const shellEvents = events.filter((e) => e.source === "shell");
     const failedCommands = shellEvents.filter(
       (e) => (e.data as ShellEventData).exitCode !== 0
@@ -392,6 +511,15 @@ export class Analyzer {
         timestamp: c.endTime,
       }));
 
+    // Session statistics
+    const sessionCount = sessions.length;
+    const totalSessionMinutes = sessions.reduce(
+      (sum, s) => sum + s.durationMinutes,
+      0
+    );
+    const averageSessionMinutes =
+      sessionCount > 0 ? Math.round(totalSessionMinutes / sessionCount) : 0;
+
     return {
       totalEvents: events.length,
       totalCommands: shellEvents.length,
@@ -399,6 +527,8 @@ export class Analyzer {
       struggleScore,
       topTopics,
       ahaMonments,
+      sessionCount,
+      averageSessionMinutes,
     };
   }
 }

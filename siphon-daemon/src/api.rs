@@ -224,6 +224,124 @@ pub async fn get_stats(State(state): State<Arc<AppState>>) -> impl IntoResponse 
     })
 }
 
+/// Cleanup request body
+#[derive(Debug, Deserialize)]
+pub struct CleanupRequest {
+    #[serde(default = "default_retention_days")]
+    pub retention_days: u32,
+    #[serde(default)]
+    pub vacuum: bool,
+}
+
+fn default_retention_days() -> u32 {
+    30
+}
+
+/// Cleanup response
+#[derive(Serialize)]
+pub struct CleanupResponse {
+    pub deleted_count: usize,
+    pub vacuumed: bool,
+    pub db_size_bytes: u64,
+}
+
+/// Cleanup old events
+pub async fn cleanup_events(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CleanupRequest>,
+) -> impl IntoResponse {
+    let store = state.store.lock().unwrap();
+
+    match store.cleanup_old_events(payload.retention_days) {
+        Ok(deleted) => {
+            info!(
+                "Cleaned up {} events older than {} days",
+                deleted, payload.retention_days
+            );
+
+            let vacuumed = if payload.vacuum {
+                store.vacuum().is_ok()
+            } else {
+                false
+            };
+
+            let db_size = store.get_db_size().unwrap_or(0);
+
+            (
+                StatusCode::OK,
+                Json(CleanupResponse {
+                    deleted_count: deleted,
+                    vacuumed,
+                    db_size_bytes: db_size,
+                }),
+            )
+        }
+        Err(e) => {
+            tracing::error!("Failed to cleanup events: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CleanupResponse {
+                    deleted_count: 0,
+                    vacuumed: false,
+                    db_size_bytes: 0,
+                }),
+            )
+        }
+    }
+}
+
+/// Storage info response
+#[derive(Serialize)]
+pub struct StorageInfoResponse {
+    pub total_events: i64,
+    pub db_size_bytes: u64,
+    pub db_size_human: String,
+    pub oldest_event: Option<String>,
+    pub newest_event: Option<String>,
+    pub daily_counts: Vec<(String, i64)>,
+}
+
+/// Get storage information
+pub async fn get_storage_info(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let store = state.store.lock().unwrap();
+
+    let total = store.get_total_count().unwrap_or(0);
+    let db_size = store.get_db_size().unwrap_or(0);
+    let time_range = store.get_event_time_range().unwrap_or(None);
+    let daily_counts = store.get_daily_counts(30).unwrap_or_default();
+
+    let (oldest, newest) = match time_range {
+        Some((min, max)) => (Some(min.to_rfc3339()), Some(max.to_rfc3339())),
+        None => (None, None),
+    };
+
+    Json(StorageInfoResponse {
+        total_events: total,
+        db_size_bytes: db_size,
+        db_size_human: format_bytes(db_size),
+        oldest_event: oldest,
+        newest_event: newest,
+        daily_counts,
+    })
+}
+
+/// Format bytes as human-readable string
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = KB * 1024;
+    const GB: u64 = MB * 1024;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
+}
+
 /// Detect project name from path
 fn detect_project(path: &str) -> Option<String> {
     // Find the last component that looks like a project directory
