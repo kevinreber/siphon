@@ -5,28 +5,28 @@
  * calculates struggle scores, and identifies "aha moments".
  */
 
-import {
-  Event,
-  Cluster,
-  LearningSignal,
-  ContentIdea,
+import type {
   AnalysisResult,
-  ShellEventData,
+  Cluster,
+  ContentIdea,
+  Event,
+  LearningSignal,
   Session,
-} from "./types.js";
+  ShellEventData,
+} from './types.js';
 
 // Topic detection keywords
 const TOPIC_KEYWORDS: Record<string, string[]> = {
-  kubernetes: ["kubectl", "k8s", "helm", "pod", "deployment", "service", "ingress"],
-  docker: ["docker", "container", "dockerfile", "compose"],
-  git: ["git", "commit", "push", "pull", "merge", "rebase", "branch"],
-  node: ["npm", "node", "yarn", "pnpm", "package.json"],
-  python: ["python", "pip", "venv", "pytest", "poetry"],
-  rust: ["cargo", "rustc", "rustup"],
-  database: ["psql", "mysql", "redis", "mongo", "sqlite"],
-  aws: ["aws", "s3", "ec2", "lambda", "cloudformation"],
-  testing: ["test", "jest", "pytest", "mocha", "cypress"],
-  debugging: ["debug", "log", "error", "trace", "stack"],
+  kubernetes: ['kubectl', 'k8s', 'helm', 'pod', 'deployment', 'service', 'ingress'],
+  docker: ['docker', 'container', 'dockerfile', 'compose'],
+  git: ['git', 'commit', 'push', 'pull', 'merge', 'rebase', 'branch'],
+  node: ['npm', 'node', 'yarn', 'pnpm', 'package.json'],
+  python: ['python', 'pip', 'venv', 'pytest', 'poetry'],
+  rust: ['cargo', 'rustc', 'rustup'],
+  database: ['psql', 'mysql', 'redis', 'mongo', 'sqlite'],
+  aws: ['aws', 's3', 'ec2', 'lambda', 'cloudformation'],
+  testing: ['test', 'jest', 'pytest', 'mocha', 'cypress'],
+  debugging: ['debug', 'log', 'error', 'trace', 'stack'],
 };
 
 /**
@@ -38,9 +38,7 @@ export class Analyzer {
    */
   analyze(events: Event[], timeWindow: { start: Date; end: Date }): AnalysisResult {
     // Sort events by timestamp
-    const sortedEvents = [...events].sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
-    );
+    const sortedEvents = [...events].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     // Cluster events
     const clusters = this.clusterEvents(sortedEvents);
@@ -85,7 +83,7 @@ export class Analyzer {
     const CLUSTER_GAP_MS = 30 * 60 * 1000; // 30 minutes
 
     let currentCluster: Event[] = [];
-    let currentTopic = "";
+    let currentTopic = '';
 
     for (const event of events) {
       const eventTopic = this.detectTopic(event);
@@ -99,7 +97,7 @@ export class Analyzer {
       const shouldStartNew =
         currentCluster.length === 0 ||
         timeSinceLastEvent > CLUSTER_GAP_MS ||
-        (eventTopic !== currentTopic && eventTopic !== "general");
+        (eventTopic !== currentTopic && eventTopic !== 'general');
 
       if (shouldStartNew && currentCluster.length > 0) {
         // Save current cluster
@@ -108,7 +106,7 @@ export class Analyzer {
       }
 
       currentCluster.push(event);
-      if (eventTopic !== "general") {
+      if (eventTopic !== 'general') {
         currentTopic = eventTopic;
       }
     }
@@ -136,9 +134,7 @@ export class Analyzer {
     let lastEventTime: Date | null = null;
 
     for (const event of events) {
-      const gapMs = lastEventTime
-        ? event.timestamp.getTime() - lastEventTime.getTime()
-        : 0;
+      const gapMs = lastEventTime ? event.timestamp.getTime() - lastEventTime.getTime() : 0;
 
       if (gapMs > SESSION_GAP_MS && currentSessionEvents.length > 0) {
         // End current session and start a new one
@@ -164,13 +160,7 @@ export class Analyzer {
     // Save final session
     if (currentSessionEvents.length > 0 && sessionStart && lastEventTime) {
       sessions.push(
-        this.createSession(
-          currentSessionEvents,
-          clusters,
-          sessionStart,
-          lastEventTime,
-          undefined
-        )
+        this.createSession(currentSessionEvents, clusters, sessionStart, lastEventTime, undefined)
       );
     }
 
@@ -187,9 +177,7 @@ export class Analyzer {
     endTime: Date,
     gapBeforeMinutes?: number
   ): Session {
-    const durationMinutes = Math.round(
-      (endTime.getTime() - startTime.getTime()) / 60000
-    );
+    const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
     // Find clusters that overlap with this session
     const sessionClusters = allClusters.filter(
@@ -199,9 +187,7 @@ export class Analyzer {
     // Generate a description based on the clusters
     const topTopics = this.getTopTopicsFromClusters(sessionClusters, 3);
     const description =
-      topTopics.length > 0
-        ? `Working on ${topTopics.join(", ")}`
-        : "Development session";
+      topTopics.length > 0 ? `Working on ${topTopics.join(', ')}` : 'Development session';
 
     return {
       id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -221,7 +207,7 @@ export class Analyzer {
   private getTopTopicsFromClusters(clusters: Cluster[], limit: number): string[] {
     const topicCounts = new Map<string, number>();
     for (const cluster of clusters) {
-      if (cluster.topic !== "general") {
+      if (cluster.topic !== 'general') {
         topicCounts.set(
           cluster.topic,
           (topicCounts.get(cluster.topic) || 0) + cluster.events.length
@@ -241,21 +227,19 @@ export class Analyzer {
   private createCluster(events: Event[], topic: string): Cluster {
     const startTime = events[0].timestamp;
     const endTime = events[events.length - 1].timestamp;
-    const durationMinutes = Math.round(
-      (endTime.getTime() - startTime.getTime()) / 60000
-    );
+    const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 
     // Determine confidence based on event count and duration
-    let confidence: "high" | "medium" | "low" = "low";
+    let confidence: 'high' | 'medium' | 'low' = 'low';
     if (events.length >= 10 && durationMinutes >= 60) {
-      confidence = "high";
+      confidence = 'high';
     } else if (events.length >= 5) {
-      confidence = "medium";
+      confidence = 'medium';
     }
 
     return {
       id: `cluster-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      topic: topic || "general",
+      topic: topic || 'general',
       events,
       startTime,
       endTime,
@@ -271,7 +255,7 @@ export class Analyzer {
    * Detect topic from an event
    */
   private detectTopic(event: Event): string {
-    if (event.source === "shell") {
+    if (event.source === 'shell') {
       const data = event.data as ShellEventData;
       const command = data.command.toLowerCase();
 
@@ -288,7 +272,7 @@ export class Analyzer {
       }
     }
 
-    return "general";
+    return 'general';
   }
 
   /**
@@ -298,14 +282,12 @@ export class Analyzer {
     const signals: LearningSignal[] = [];
 
     // Count failed commands
-    const shellEvents = events.filter((e) => e.source === "shell");
-    const failedCommands = shellEvents.filter(
-      (e) => (e.data as ShellEventData).exitCode !== 0
-    );
+    const shellEvents = events.filter((e) => e.source === 'shell');
+    const failedCommands = shellEvents.filter((e) => (e.data as ShellEventData).exitCode !== 0);
 
     if (failedCommands.length > 3) {
       signals.push({
-        type: "debugging",
+        type: 'debugging',
         description: `${failedCommands.length} failed commands indicate troubleshooting`,
         intensity: Math.min(failedCommands.length * 10, 100),
       });
@@ -316,17 +298,15 @@ export class Analyzer {
     for (const event of shellEvents) {
       const cmd = (event.data as ShellEventData).command;
       // Normalize command (remove arguments that look like variable)
-      const normalized = cmd.split(/\s+/).slice(0, 2).join(" ");
+      const normalized = cmd.split(/\s+/).slice(0, 2).join(' ');
       commandCounts.set(normalized, (commandCounts.get(normalized) || 0) + 1);
     }
 
-    const repeatedCommands = [...commandCounts.entries()].filter(
-      ([, count]) => count >= 3
-    );
+    const repeatedCommands = [...commandCounts.entries()].filter(([, count]) => count >= 3);
     if (repeatedCommands.length > 0) {
       signals.push({
-        type: "exploration",
-        description: `Repeated commands suggest iterative exploration`,
+        type: 'exploration',
+        description: 'Repeated commands suggest iterative exploration',
         intensity: Math.min(repeatedCommands.length * 20, 100),
       });
     }
@@ -340,12 +320,10 @@ export class Analyzer {
    * Higher score = more debugging/troubleshooting = better content potential
    */
   private calculateStruggleScore(events: Event[]): number {
-    const shellEvents = events.filter((e) => e.source === "shell");
+    const shellEvents = events.filter((e) => e.source === 'shell');
     if (shellEvents.length === 0) return 0;
 
-    const failedCommands = shellEvents.filter(
-      (e) => (e.data as ShellEventData).exitCode !== 0
-    );
+    const failedCommands = shellEvents.filter((e) => (e.data as ShellEventData).exitCode !== 0);
 
     // Factor 1: Failure rate (0-40 points)
     const failureRate = failedCommands.length / shellEvents.length;
@@ -377,7 +355,7 @@ export class Analyzer {
    * Returns an index (0-100) indicating how strong the breakthrough was
    */
   private detectAhaMoments(events: Event[]): number {
-    const shellEvents = events.filter((e) => e.source === "shell");
+    const shellEvents = events.filter((e) => e.source === 'shell');
     if (shellEvents.length < 3) return 0;
 
     let maxAhaIntensity = 0;
@@ -410,7 +388,7 @@ export class Analyzer {
 
     for (const cluster of clusters) {
       // Skip low-confidence clusters
-      if (cluster.confidence === "low" && cluster.struggleScore < 30) {
+      if (cluster.confidence === 'low' && cluster.struggleScore < 30) {
         continue;
       }
 
@@ -419,14 +397,14 @@ export class Analyzer {
         ideas.push({
           title: `Debugging ${cluster.topic}: A Developer's Journey`,
           hook: `I spent ${cluster.durationMinutes} minutes debugging ${cluster.topic}. Here's what I learned.`,
-          angle: "Troubleshooting narrative with lessons learned",
+          angle: 'Troubleshooting narrative with lessons learned',
           confidence: cluster.confidence,
           evidence: [
             `${cluster.events.length} events over ${cluster.durationMinutes} minutes`,
             `Struggle score: ${cluster.struggleScore}%`,
-            cluster.signals.map((s) => s.description).join(", "),
+            cluster.signals.map((s) => s.description).join(', '),
           ],
-          suggestedFormat: "video",
+          suggestedFormat: 'video',
         });
       }
 
@@ -435,13 +413,10 @@ export class Analyzer {
         ideas.push({
           title: `The ${cluster.topic} Bug That Took Me Hours (And the Simple Fix)`,
           hook: `After multiple failed attempts, I finally figured out the solution. Here's the journey.`,
-          angle: "Problem-solution narrative with the breakthrough moment",
+          angle: 'Problem-solution narrative with the breakthrough moment',
           confidence: cluster.confidence,
-          evidence: [
-            `Aha moment intensity: ${cluster.ahaIndex}%`,
-            `Topic: ${cluster.topic}`,
-          ],
-          suggestedFormat: "blog",
+          evidence: [`Aha moment intensity: ${cluster.ahaIndex}%`, `Topic: ${cluster.topic}`],
+          suggestedFormat: 'blog',
         });
       }
 
@@ -450,13 +425,13 @@ export class Analyzer {
         ideas.push({
           title: `Deep Dive: ${cluster.topic}`,
           hook: `A comprehensive exploration of ${cluster.topic} from my recent work session.`,
-          angle: "Educational deep dive based on real work",
+          angle: 'Educational deep dive based on real work',
           confidence: cluster.confidence,
           evidence: [
             `${cluster.durationMinutes} minute focused session`,
             `${cluster.events.length} events tracked`,
           ],
-          suggestedFormat: "video",
+          suggestedFormat: 'video',
         });
       }
     }
@@ -474,16 +449,12 @@ export class Analyzer {
    * Calculate summary statistics
    */
   private calculateSummary(events: Event[], clusters: Cluster[], sessions: Session[]) {
-    const shellEvents = events.filter((e) => e.source === "shell");
-    const failedCommands = shellEvents.filter(
-      (e) => (e.data as ShellEventData).exitCode !== 0
-    );
+    const shellEvents = events.filter((e) => e.source === 'shell');
+    const failedCommands = shellEvents.filter((e) => (e.data as ShellEventData).exitCode !== 0);
 
     // Calculate overall struggle score
     const struggleScore =
-      shellEvents.length > 0
-        ? Math.round((failedCommands.length / shellEvents.length) * 100)
-        : 0;
+      shellEvents.length > 0 ? Math.round((failedCommands.length / shellEvents.length) * 100) : 0;
 
     // Top topics
     const topicCounts = new Map<string, { count: number; timeMs: number }>();
@@ -513,10 +484,7 @@ export class Analyzer {
 
     // Session statistics
     const sessionCount = sessions.length;
-    const totalSessionMinutes = sessions.reduce(
-      (sum, s) => sum + s.durationMinutes,
-      0
-    );
+    const totalSessionMinutes = sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
     const averageSessionMinutes =
       sessionCount > 0 ? Math.round(totalSessionMinutes / sessionCount) : 0;
 

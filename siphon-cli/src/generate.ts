@@ -5,8 +5,8 @@
  * Requires ANTHROPIC_API_KEY environment variable.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { AnalysisResult, ContentIdea } from "./types.js";
+import Anthropic from '@anthropic-ai/sdk';
+import type { AnalysisResult } from './types.js';
 
 const SYSTEM_PROMPT = `You are a content strategist helping developers turn their work sessions into engaging content.
 You analyze their development activity data and suggest video ideas, blog posts, and social media threads.
@@ -29,10 +29,10 @@ export interface GeneratedContent {
 export interface EnhancedIdea {
   title: string;
   hook: string;
-  format: "video" | "blog" | "thread" | "newsletter";
+  format: 'video' | 'blog' | 'thread' | 'newsletter';
   outline: string[];
   targetAudience: string;
-  estimatedEngagement: "high" | "medium" | "low";
+  estimatedEngagement: 'high' | 'medium' | 'low';
   keyTakeaways: string[];
 }
 
@@ -46,14 +46,12 @@ export function isClaudeAvailable(): boolean {
 /**
  * Generate enhanced content ideas using Claude
  */
-export async function generateWithClaude(
-  result: AnalysisResult
-): Promise<GeneratedContent> {
+export async function generateWithClaude(result: AnalysisResult): Promise<GeneratedContent> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "ANTHROPIC_API_KEY environment variable is required.\n" +
-        "Set it with: export ANTHROPIC_API_KEY=your-key-here"
+      'ANTHROPIC_API_KEY environment variable is required.\n' +
+        'Set it with: export ANTHROPIC_API_KEY=your-key-here'
     );
   }
 
@@ -61,14 +59,14 @@ export async function generateWithClaude(
 
   const userPrompt = buildPrompt(result);
 
-  console.log("\nGenerating content ideas with Claude...\n");
+  console.log('\nGenerating content ideas with Claude...\n');
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 2048,
     messages: [
       {
-        role: "user",
+        role: 'user',
         content: userPrompt,
       },
     ],
@@ -76,9 +74,9 @@ export async function generateWithClaude(
   });
 
   // Extract text from response
-  const textContent = response.content.find((block) => block.type === "text");
-  if (!textContent || textContent.type !== "text") {
-    throw new Error("Unexpected response format from Claude");
+  const textContent = response.content.find((block) => block.type === 'text');
+  if (!textContent || textContent.type !== 'text') {
+    throw new Error('Unexpected response format from Claude');
   }
 
   return parseClaudeResponse(textContent.text);
@@ -95,7 +93,7 @@ function buildPrompt(result: AnalysisResult): string {
 ## Session Summary
 - Total commands: ${summary.totalCommands} (${summary.failedCommands} failed)
 - Struggle score: ${summary.struggleScore}% (higher = more debugging)
-- Top topics: ${summary.topTopics.map((t) => `${t.topic} (${t.count} events, ${t.timeMinutes} min)`).join(", ")}
+- Top topics: ${summary.topTopics.map((t) => `${t.topic} (${t.count} events, ${t.timeMinutes} min)`).join(', ')}
 
 ## Work Clusters
 `;
@@ -107,21 +105,21 @@ function buildPrompt(result: AnalysisResult): string {
 - Struggle score: ${cluster.struggleScore}%
 - Aha moment index: ${cluster.ahaIndex}%
 - Confidence: ${cluster.confidence}
-- Signals: ${cluster.signals.map((s) => s.description).join(", ") || "none"}
+- Signals: ${cluster.signals.map((s) => s.description).join(', ') || 'none'}
 `;
   }
 
   if (summary.ahaMonments.length > 0) {
     prompt += `
 ## Breakthrough Moments
-${summary.ahaMonments.map((a) => `- ${a.description}`).join("\n")}
+${summary.ahaMonments.map((a) => `- ${a.description}`).join('\n')}
 `;
   }
 
   if (ideas.length > 0) {
     prompt += `
 ## Initial Content Ideas (auto-detected)
-${ideas.map((i, idx) => `${idx + 1}. ${i.title}\n   Hook: "${i.hook}"\n   Format: ${i.suggestedFormat}`).join("\n")}
+${ideas.map((i, idx) => `${idx + 1}. ${i.title}\n   Hook: "${i.hook}"\n   Format: ${i.suggestedFormat}`).join('\n')}
 `;
   }
 
@@ -156,51 +154,41 @@ function parseClaudeResponse(text: string): GeneratedContent {
   const ideaPattern =
     /(?:^|\n)(?:\d+\.\s*\*{0,2}|##?\s*)([^\n]+?)(?:\*{0,2})\n([\s\S]*?)(?=(?:\n(?:\d+\.\s*\*{0,2}|##?\s*)|$))/g;
 
-  let match;
-  while ((match = ideaPattern.exec(text)) !== null) {
+  let match: RegExpExecArray | null = ideaPattern.exec(text);
+  while (match !== null) {
     const title = match[1].trim();
     const content = match[2];
 
     // Skip if this is a meta-section like "Weekly Theme" or "Series Potential"
-    if (
-      title.toLowerCase().includes("weekly theme") ||
-      title.toLowerCase().includes("series")
-    ) {
+    if (title.toLowerCase().includes('weekly theme') || title.toLowerCase().includes('series')) {
       continue;
     }
 
     // Extract hook
-    const hookMatch = content.match(
-      /hook[:\s]*["']?([^"\n]+)["']?/i
-    );
-    const hook = hookMatch ? hookMatch[1].trim() : "";
+    const hookMatch = content.match(/hook[:\s]*["']?([^"\n]+)["']?/i);
+    const hook = hookMatch ? hookMatch[1].trim() : '';
 
     // Extract format
-    let format: "video" | "blog" | "thread" | "newsletter" = "video";
-    if (content.toLowerCase().includes("blog")) format = "blog";
-    if (content.toLowerCase().includes("thread")) format = "thread";
-    if (content.toLowerCase().includes("newsletter")) format = "newsletter";
+    let format: 'video' | 'blog' | 'thread' | 'newsletter' = 'video';
+    if (content.toLowerCase().includes('blog')) format = 'blog';
+    if (content.toLowerCase().includes('thread')) format = 'thread';
+    if (content.toLowerCase().includes('newsletter')) format = 'newsletter';
 
     // Extract outline (bullet points)
     const outlineMatches = content.match(/[-*]\s+([^\n]+)/g) || [];
-    const outline = outlineMatches.map((m) => m.replace(/^[-*]\s+/, "").trim());
+    const outline = outlineMatches.map((m) => m.replace(/^[-*]\s+/, '').trim());
 
     // Extract target audience
-    const audienceMatch = content.match(
-      /(?:target\s*)?audience[:\s]*([^\n]+)/i
-    );
-    const targetAudience = audienceMatch
-      ? audienceMatch[1].trim()
-      : "Developers";
+    const audienceMatch = content.match(/(?:target\s*)?audience[:\s]*([^\n]+)/i);
+    const targetAudience = audienceMatch ? audienceMatch[1].trim() : 'Developers';
 
     // Extract takeaways
-    const takeawayMatches =
-      content.match(/takeaway[s]?[:\s]*\n?((?:[-*]\s+[^\n]+\n?)+)/i) || [];
+    const takeawayMatches = content.match(/takeaway[s]?[:\s]*\n?((?:[-*]\s+[^\n]+\n?)+)/i) || [];
     const keyTakeaways = takeawayMatches[1]
       ? takeawayMatches[1]
-          .split("\n")
+          .split('\n')
           .filter((l) => l.trim())
-          .map((l) => l.replace(/^[-*]\s+/, "").trim())
+          .map((l) => l.replace(/^[-*]\s+/, '').trim())
       : [];
 
     if (title && title.length > 5) {
@@ -210,22 +198,19 @@ function parseClaudeResponse(text: string): GeneratedContent {
         format,
         outline: outline.slice(0, 5),
         targetAudience,
-        estimatedEngagement: outline.length > 3 ? "high" : "medium",
+        estimatedEngagement: outline.length > 3 ? 'high' : 'medium',
         keyTakeaways: keyTakeaways.slice(0, 3),
       });
     }
+    match = ideaPattern.exec(text);
   }
 
   // Extract weekly theme
-  const themeMatch = text.match(
-    /weekly\s*theme[:\s]*\n?([^\n]+(?:\n(?![#\d])[^\n]+)*)/i
-  );
+  const themeMatch = text.match(/weekly\s*theme[:\s]*\n?([^\n]+(?:\n(?![#\d])[^\n]+)*)/i);
   const weeklyTheme = themeMatch ? themeMatch[1].trim() : undefined;
 
   // Extract series suggestion
-  const seriesMatch = text.match(
-    /series\s*(?:potential)?[:\s]*\n?([^\n]+(?:\n(?![#\d])[^\n]+)*)/i
-  );
+  const seriesMatch = text.match(/series\s*(?:potential)?[:\s]*\n?([^\n]+(?:\n(?![#\d])[^\n]+)*)/i);
   const suggestedSeries = seriesMatch ? seriesMatch[1].trim() : undefined;
 
   return {
@@ -239,9 +224,9 @@ function parseClaudeResponse(text: string): GeneratedContent {
  * Display generated content to console
  */
 export function displayGeneratedContent(content: GeneratedContent): void {
-  console.log("=".repeat(60));
-  console.log("CLAUDE-GENERATED CONTENT IDEAS");
-  console.log("=".repeat(60));
+  console.log('='.repeat(60));
+  console.log('CLAUDE-GENERATED CONTENT IDEAS');
+  console.log('='.repeat(60));
   console.log();
 
   for (let i = 0; i < content.ideas.length; i++) {
@@ -252,14 +237,14 @@ export function displayGeneratedContent(content: GeneratedContent): void {
     console.log(`   Audience: ${idea.targetAudience}`);
 
     if (idea.outline.length > 0) {
-      console.log("   Outline:");
+      console.log('   Outline:');
       for (const point of idea.outline) {
         console.log(`     - ${point}`);
       }
     }
 
     if (idea.keyTakeaways.length > 0) {
-      console.log("   Key Takeaways:");
+      console.log('   Key Takeaways:');
       for (const takeaway of idea.keyTakeaways) {
         console.log(`     - ${takeaway}`);
       }
@@ -269,17 +254,17 @@ export function displayGeneratedContent(content: GeneratedContent): void {
   }
 
   if (content.weeklyTheme) {
-    console.log("-".repeat(40));
-    console.log("WEEKLY THEME SUGGESTION");
-    console.log("-".repeat(40));
+    console.log('-'.repeat(40));
+    console.log('WEEKLY THEME SUGGESTION');
+    console.log('-'.repeat(40));
     console.log(content.weeklyTheme);
     console.log();
   }
 
   if (content.suggestedSeries) {
-    console.log("-".repeat(40));
-    console.log("SERIES POTENTIAL");
-    console.log("-".repeat(40));
+    console.log('-'.repeat(40));
+    console.log('SERIES POTENTIAL');
+    console.log('-'.repeat(40));
     console.log(content.suggestedSeries);
     console.log();
   }

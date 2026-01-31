@@ -5,15 +5,11 @@
  * generates content ideas.
  */
 
-import { Analyzer } from "../analyzer.js";
-import { ShellHistoryCollector } from "../collectors/shell.js";
-import { GitCollector } from "../collectors/git.js";
-import {
-  isClaudeAvailable,
-  generateWithClaude,
-  displayGeneratedContent,
-} from "../generate.js";
-import { Event } from "../types.js";
+import { Analyzer } from '../analyzer.js';
+import { GitCollector } from '../collectors/git.js';
+import { ShellHistoryCollector } from '../collectors/shell.js';
+import { displayGeneratedContent, generateWithClaude, isClaudeAvailable } from '../generate.js';
+import type { Event } from '../types.js';
 
 interface CaptureOptions {
   time: string;
@@ -32,15 +28,15 @@ function parseTimeDuration(duration: string): number {
     throw new Error(`Invalid duration: ${duration}. Use format like "2h", "30m", or "90"`);
   }
 
-  const value = parseInt(match[1], 10);
-  const unit = match[2] || "m";
+  const value = Number.parseInt(match[1], 10);
+  const unit = match[2] || 'm';
 
   switch (unit) {
-    case "h":
+    case 'h':
       return value * 60 * 60 * 1000;
-    case "m":
+    case 'm':
       return value * 60 * 1000;
-    case "s":
+    case 's':
       return value * 1000;
     default:
       return value * 60 * 1000;
@@ -65,8 +61,8 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
     if (options.verbose) {
       console.log(`  Shell: ${shellEvents.length} commands`);
     }
-  } catch (err) {
-    console.log(`  Shell: Could not read history`);
+  } catch (_err) {
+    console.log('  Shell: Could not read history');
   }
 
   // Collect git activity
@@ -77,16 +73,16 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
     if (options.verbose) {
       console.log(`  Git: ${gitEvents.length} commits`);
     }
-  } catch (err) {
-    console.log(`  Git: Could not read git log`);
+  } catch (_err) {
+    console.log('  Git: Could not read git log');
   }
 
   if (events.length === 0) {
-    console.log("No events found in the specified time range.");
-    console.log("\nTips:");
-    console.log("  - Make sure you have shell history enabled");
-    console.log("  - Run the Siphon daemon for real-time capture");
-    console.log("  - Try a longer time window with --time 4h");
+    console.log('No events found in the specified time range.');
+    console.log('\nTips:');
+    console.log('  - Make sure you have shell history enabled');
+    console.log('  - Run the Siphon daemon for real-time capture');
+    console.log('  - Try a longer time window with --time 4h');
     return;
   }
 
@@ -101,21 +97,21 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
 
   // Generate Claude prompt if requested
   if (options.prompt) {
-    console.log("\n" + "=".repeat(60));
-    console.log("CLAUDE PROMPT");
-    console.log("=".repeat(60) + "\n");
+    console.log(`\n${'='.repeat(60)}`);
+    console.log('CLAUDE PROMPT');
+    console.log(`${'='.repeat(60)}\n`);
     console.log(generateClaudePrompt(result));
   }
 
   // Generate with Claude API if requested
   if (options.generate) {
     if (!isClaudeAvailable()) {
-      console.log("\n" + "=".repeat(60));
-      console.log("CLAUDE API NOT CONFIGURED");
-      console.log("=".repeat(60));
-      console.log("\nTo use --generate, set your API key:");
-      console.log("  export ANTHROPIC_API_KEY=your-key-here\n");
-      console.log("Get an API key at: https://console.anthropic.com/\n");
+      console.log(`\n${'='.repeat(60)}`);
+      console.log('CLAUDE API NOT CONFIGURED');
+      console.log('='.repeat(60));
+      console.log('\nTo use --generate, set your API key:');
+      console.log('  export ANTHROPIC_API_KEY=your-key-here\n');
+      console.log('Get an API key at: https://console.anthropic.com/\n');
       return;
     }
 
@@ -124,21 +120,18 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
       console.log();
       displayGeneratedContent(generatedContent);
     } catch (err) {
-      console.error("\nFailed to generate content with Claude:");
+      console.error('\nFailed to generate content with Claude:');
       console.error(err instanceof Error ? err.message : String(err));
     }
   }
 }
 
-function displayResults(
-  result: ReturnType<Analyzer["analyze"]>,
-  options: CaptureOptions
-): void {
+function displayResults(result: ReturnType<Analyzer['analyze']>, options: CaptureOptions): void {
   const { summary, clusters, ideas } = result;
 
   // Summary section
-  console.log("SUMMARY");
-  console.log("-".repeat(40));
+  console.log('SUMMARY');
+  console.log('-'.repeat(40));
   console.log(`Time Range: ${formatTimeRange(result.timeRange)}`);
   console.log(`Total Events: ${summary.totalEvents}`);
   console.log(`Commands: ${summary.totalCommands} (${summary.failedCommands} failed)`);
@@ -147,8 +140,8 @@ function displayResults(
 
   // Top topics
   if (summary.topTopics.length > 0) {
-    console.log("TOP TOPICS");
-    console.log("-".repeat(40));
+    console.log('TOP TOPICS');
+    console.log('-'.repeat(40));
     for (const topic of summary.topTopics) {
       console.log(`  ${topic.topic}: ${topic.count} events (${topic.timeMinutes} min)`);
     }
@@ -157,8 +150,8 @@ function displayResults(
 
   // Aha moments
   if (summary.ahaMonments.length > 0) {
-    console.log("AHA MOMENTS");
-    console.log("-".repeat(40));
+    console.log('AHA MOMENTS');
+    console.log('-'.repeat(40));
     for (const aha of summary.ahaMonments) {
       console.log(`  ${aha.description} at ${formatTime(aha.timestamp)}`);
     }
@@ -167,34 +160,36 @@ function displayResults(
 
   // Content ideas
   if (ideas.length > 0) {
-    console.log("CONTENT IDEAS");
-    console.log("-".repeat(40));
+    console.log('CONTENT IDEAS');
+    console.log('-'.repeat(40));
     for (let i = 0; i < Math.min(ideas.length, 5); i++) {
       const idea = ideas[i];
-      const badge = idea.confidence === "high" ? "" : idea.confidence === "medium" ? "" : "";
+      const badge = idea.confidence === 'high' ? '' : idea.confidence === 'medium' ? '' : '';
       console.log(`\n${i + 1}. ${badge} ${idea.title}`);
       console.log(`   Hook: "${idea.hook}"`);
       console.log(`   Format: ${idea.suggestedFormat}`);
       if (options.verbose) {
-        console.log(`   Evidence: ${idea.evidence.join("; ")}`);
+        console.log(`   Evidence: ${idea.evidence.join('; ')}`);
       }
     }
     console.log();
   } else {
-    console.log("No strong content ideas detected.");
-    console.log("Try working on something challenging and run capture again!");
+    console.log('No strong content ideas detected.');
+    console.log('Try working on something challenging and run capture again!');
   }
 
   // Clusters (verbose mode)
   if (options.verbose && clusters.length > 0) {
-    console.log("\nCLUSTERS (Detailed)");
-    console.log("-".repeat(40));
+    console.log('\nCLUSTERS (Detailed)');
+    console.log('-'.repeat(40));
     for (const cluster of clusters) {
-      console.log(`\n[${cluster.topic}] ${cluster.durationMinutes} min, ${cluster.events.length} events`);
+      console.log(
+        `\n[${cluster.topic}] ${cluster.durationMinutes} min, ${cluster.events.length} events`
+      );
       console.log(`  Confidence: ${cluster.confidence}`);
       console.log(`  Struggle: ${cluster.struggleScore}% | Aha: ${cluster.ahaIndex}%`);
       if (cluster.signals.length > 0) {
-        console.log(`  Signals: ${cluster.signals.map((s) => s.type).join(", ")}`);
+        console.log(`  Signals: ${cluster.signals.map((s) => s.type).join(', ')}`);
       }
     }
   }
@@ -205,14 +200,14 @@ function formatTimeRange(range: { start: Date; end: Date; durationMinutes: numbe
 }
 
 function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
     hour12: false,
   });
 }
 
-function generateClaudePrompt(result: ReturnType<Analyzer["analyze"]>): string {
+function generateClaudePrompt(result: ReturnType<Analyzer['analyze']>): string {
   const { summary, clusters, ideas } = result;
 
   return `I just completed a ${result.timeRange.durationMinutes}-minute development session. Here's what I worked on:
@@ -220,17 +215,18 @@ function generateClaudePrompt(result: ReturnType<Analyzer["analyze"]>): string {
 ## Session Summary
 - Total commands: ${summary.totalCommands} (${summary.failedCommands} failed)
 - Struggle score: ${summary.struggleScore}%
-- Top topics: ${summary.topTopics.map((t) => `${t.topic} (${t.count} events)`).join(", ")}
+- Top topics: ${summary.topTopics.map((t) => `${t.topic} (${t.count} events)`).join(', ')}
 
 ## Detected Clusters
 ${clusters
   .map(
-    (c) => `- **${c.topic}** (${c.durationMinutes} min): ${c.events.length} events, struggle: ${c.struggleScore}%, aha: ${c.ahaIndex}%`
+    (c) =>
+      `- **${c.topic}** (${c.durationMinutes} min): ${c.events.length} events, struggle: ${c.struggleScore}%, aha: ${c.ahaIndex}%`
   )
-  .join("\n")}
+  .join('\n')}
 
 ## Initial Content Ideas
-${ideas.map((i, idx) => `${idx + 1}. ${i.title}\n   - Hook: "${i.hook}"\n   - Format: ${i.suggestedFormat}`).join("\n")}
+${ideas.map((i, idx) => `${idx + 1}. ${i.title}\n   - Hook: "${i.hook}"\n   - Format: ${i.suggestedFormat}`).join('\n')}
 
 Based on this session data, please:
 1. Suggest 3-5 content ideas (video, blog post, or Twitter thread)
