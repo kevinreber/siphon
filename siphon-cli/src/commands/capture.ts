@@ -45,6 +45,7 @@ function parseTimeDuration(duration: string): number {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Main entry point with multiple collector paths
 export async function captureCommand(options: CaptureOptions): Promise<void> {
   const durationMs = parseTimeDuration(options.time);
   const endTime = new Date();
@@ -149,6 +150,7 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex display with multiple output sections
 function displayResults(result: ReturnType<Analyzer['analyze']>, options: CaptureOptions): void {
   const { summary, clusters, ideas } = result;
 

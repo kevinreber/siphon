@@ -14,6 +14,8 @@ pub struct TriggerConfig {
     pub failure_threshold: u32,
     /// Time window for counting failures (seconds)
     pub failure_window_secs: u64,
+    /// Cooldown between triggers in seconds (0 to disable)
+    pub trigger_cooldown_secs: u64,
     /// Enable OBS integration
     pub obs_integration: bool,
     /// OBS WebSocket URL
@@ -28,7 +30,8 @@ impl Default for TriggerConfig {
     fn default() -> Self {
         Self {
             failure_threshold: 3,
-            failure_window_secs: 300, // 5 minutes
+            failure_window_secs: 300,  // 5 minutes
+            trigger_cooldown_secs: 60, // 1 minute between triggers
             obs_integration: false,
             obs_websocket_url: "ws://localhost:4455".to_string(),
             screenshot_enabled: false,
@@ -99,12 +102,13 @@ pub struct TriggerDetector {
 impl TriggerDetector {
     /// Create a new trigger detector
     pub fn new(config: TriggerConfig) -> Self {
+        let cooldown = Duration::from_secs(config.trigger_cooldown_secs);
         Self {
             config,
             recent_commands: VecDeque::with_capacity(50),
             known_commands: std::collections::HashSet::new(),
             last_trigger: None,
-            trigger_cooldown: Duration::from_secs(60), // 1 minute between triggers
+            trigger_cooldown: cooldown,
         }
     }
 
@@ -435,13 +439,16 @@ mod tests {
     #[test]
     fn test_breakthrough_detection() {
         let mut detector = TriggerDetector::new(TriggerConfig {
-            failure_threshold: 2,
+            failure_threshold: 3,
+            trigger_cooldown_secs: 0, // Disable cooldown for testing
             ..Default::default()
         });
 
-        // Record some failures
+        // Record some failures (3 to match threshold)
         assert!(detector.record_command("npm test", 1, 100, None).is_none());
         assert!(detector.record_command("npm test", 1, 100, None).is_none());
+        // Third failure triggers struggle, but cooldown is 0
+        let _struggle = detector.record_command("npm test", 1, 100, None);
 
         // Success after failures should trigger breakthrough
         let trigger = detector.record_command("npm test", 0, 100, None);
@@ -456,6 +463,7 @@ mod tests {
     fn test_struggle_detection() {
         let mut detector = TriggerDetector::new(TriggerConfig {
             failure_threshold: 3,
+            trigger_cooldown_secs: 0, // Disable cooldown for testing
             ..Default::default()
         });
 

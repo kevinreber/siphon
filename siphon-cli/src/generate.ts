@@ -146,6 +146,7 @@ Format your response as structured sections that are easy to parse.`;
 /**
  * Parse Claude's response into structured content
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Parses multiple structured sections from LLM output
 function parseClaudeResponse(text: string): GeneratedContent {
   const ideas: EnhancedIdea[] = [];
 

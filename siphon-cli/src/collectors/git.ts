@@ -194,6 +194,7 @@ export class GitCollector {
   /**
    * Get incremental diff between two commits or time-based range
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex git diff parsing with multiple formats
   getIncrementalDiff(fromCommit?: string, toCommit?: string): IncrementalDiff | null {
     try {
       const from = fromCommit || this.getCommitFromHoursAgo(24);

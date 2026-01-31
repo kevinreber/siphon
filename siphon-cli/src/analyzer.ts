@@ -198,7 +198,9 @@ export class Analyzer {
         const session = this.createSession(
           currentSessionEvents,
           clusters,
+          // biome-ignore lint/style/noNonNullAssertion: Guaranteed non-null in this branch
           sessionStart!,
+          // biome-ignore lint/style/noNonNullAssertion: Guaranteed non-null in this branch
           lastEventTime!,
           sessions.length > 0 ? Math.round(gapMs / 60000) : undefined
         );
@@ -311,6 +313,7 @@ export class Analyzer {
   /**
    * Detect topic from an event
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Topic detection with many patterns
   private detectTopic(event: Event): string {
     if (event.source === 'shell') {
       const data = event.data as ShellEventData;

@@ -187,7 +187,7 @@ fn print_event(event: &Event) {
             let exit_code = data["exit_code"].as_i64().unwrap_or(0);
             let duration = data["duration_ms"].as_u64().unwrap_or(0);
 
-            let status = if exit_code == 0 { "" } else { "" };
+            let status = if exit_code == 0 { "✓" } else { "✗" };
             let truncated = if cmd.len() > 60 {
                 format!("{}...", &cmd[..60])
             } else {

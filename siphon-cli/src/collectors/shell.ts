@@ -34,6 +34,7 @@ export class ShellHistoryCollector {
   /**
    * Collect shell events within a time range
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handles multiple shell history formats
   async collect(startTime: Date, endTime: Date): Promise<Event[]> {
     if (!this.historyPath || !fs.existsSync(this.historyPath)) {
       return [];

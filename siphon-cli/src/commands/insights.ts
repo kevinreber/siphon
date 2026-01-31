@@ -98,6 +98,7 @@ export async function insightsCommand(options: InsightsOptions): Promise<void> {
   displayInsights(insights, options.verbose);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex analytics aggregation
 async function generateInsights(
   events: Event[],
   startTime: Date,
@@ -152,6 +153,7 @@ async function generateInsights(
       if (!topicCounts.has(topic.topic)) {
         topicCounts.set(topic.topic, { count: 0, days: new Set() });
       }
+      // biome-ignore lint/style/noNonNullAssertion: Just set above
       const entry = topicCounts.get(topic.topic)!;
       entry.count += topic.count;
       entry.days.add(dateKey);
@@ -276,6 +278,7 @@ function detectNarratives(
   return narratives.sort((a, b) => b.duration - a.duration).slice(0, 5);
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex display with multiple sections
 function displayInsights(insights: WeeklyInsights, verbose?: boolean): void {
   console.log('\n');
 

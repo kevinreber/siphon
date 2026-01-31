@@ -135,6 +135,7 @@ export class BrowserHistoryCollector {
   /**
    * Find Firefox history database path
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Cross-platform Firefox profile detection
   private findFirefoxHistory(): string | null {
     const homeDir = os.homedir();
     const platform = os.platform();

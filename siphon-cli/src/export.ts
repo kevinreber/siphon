@@ -40,6 +40,7 @@ export async function exportResults(
 /**
  * Export to Markdown (Obsidian-compatible)
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex markdown generation with multiple sections
 function exportToMarkdown(result: AnalysisResult, options: ExportOptions): string {
   const title = options.title || `Siphon Capture - ${formatDate(result.timeRange.start)}`;
   const lines: string[] = [];
@@ -257,6 +258,7 @@ ${items}
 /**
  * Export to Notion-compatible format (Markdown with Notion blocks)
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex Notion format generation
 function exportToNotion(result: AnalysisResult, options: ExportOptions): string {
   const title = options.title || `Siphon Capture - ${formatDate(result.timeRange.start)}`;
   const lines: string[] = [];

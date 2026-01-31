@@ -34,6 +34,7 @@ function parseTimeDuration(duration: string): number {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex command with multiple display paths
 export async function summaryCommand(options: SummaryOptions): Promise<void> {
   const durationMs = parseTimeDuration(options.time);
   const endTime = new Date();
