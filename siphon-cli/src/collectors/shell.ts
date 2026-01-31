@@ -34,6 +34,7 @@ export class ShellHistoryCollector {
   /**
    * Collect shell events within a time range
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Handles multiple shell history formats
   async collect(startTime: Date, endTime: Date): Promise<Event[]> {
     if (!this.historyPath || !fs.existsSync(this.historyPath)) {
       return [];
@@ -151,7 +152,7 @@ export class ShellHistoryCollector {
    */
   private detectProject(command: string): string | undefined {
     // Look for common project directory patterns in command
-    const cdMatch = command.match(/cd\s+(?:~\/)?([^\/\s]+)/);
+    const cdMatch = command.match(/cd\s+(?:~\/)?([^/\s]+)/);
     if (cdMatch) {
       return cdMatch[1];
     }

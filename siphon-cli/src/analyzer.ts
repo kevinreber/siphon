@@ -7,6 +7,7 @@
 
 import type {
   AnalysisResult,
+  BrowserEventData,
   Cluster,
   ContentIdea,
   Event,
@@ -15,18 +16,74 @@ import type {
   ShellEventData,
 } from './types.js';
 
-// Topic detection keywords
+// Topic detection keywords - single words
 const TOPIC_KEYWORDS: Record<string, string[]> = {
-  kubernetes: ['kubectl', 'k8s', 'helm', 'pod', 'deployment', 'service', 'ingress'],
-  docker: ['docker', 'container', 'dockerfile', 'compose'],
-  git: ['git', 'commit', 'push', 'pull', 'merge', 'rebase', 'branch'],
-  node: ['npm', 'node', 'yarn', 'pnpm', 'package.json'],
-  python: ['python', 'pip', 'venv', 'pytest', 'poetry'],
-  rust: ['cargo', 'rustc', 'rustup'],
-  database: ['psql', 'mysql', 'redis', 'mongo', 'sqlite'],
-  aws: ['aws', 's3', 'ec2', 'lambda', 'cloudformation'],
-  testing: ['test', 'jest', 'pytest', 'mocha', 'cypress'],
-  debugging: ['debug', 'log', 'error', 'trace', 'stack'],
+  kubernetes: ['kubectl', 'k8s', 'helm', 'pod', 'deployment', 'service', 'ingress', 'minikube'],
+  docker: ['docker', 'container', 'dockerfile', 'compose', 'podman'],
+  git: ['git', 'commit', 'push', 'pull', 'merge', 'rebase', 'branch', 'stash', 'cherry-pick'],
+  node: ['npm', 'node', 'yarn', 'pnpm', 'package.json', 'express', 'nestjs', 'fastify'],
+  python: ['python', 'pip', 'venv', 'pytest', 'poetry', 'django', 'flask', 'fastapi'],
+  rust: ['cargo', 'rustc', 'rustup', 'clippy', 'rustfmt'],
+  go: ['go', 'gofmt', 'gomod', 'golint'],
+  java: ['java', 'maven', 'gradle', 'mvn', 'javac', 'spring'],
+  typescript: ['tsc', 'typescript', 'tsx', 'deno'],
+  react: ['react', 'jsx', 'nextjs', 'gatsby', 'vite'],
+  vue: ['vue', 'vuex', 'nuxt', 'pinia'],
+  database: ['psql', 'mysql', 'redis', 'mongo', 'sqlite', 'prisma', 'sequelize', 'typeorm'],
+  aws: ['aws', 's3', 'ec2', 'lambda', 'cloudformation', 'cdk', 'sam'],
+  gcp: ['gcloud', 'gsutil', 'firebase'],
+  azure: ['az', 'azure'],
+  testing: ['test', 'jest', 'pytest', 'mocha', 'cypress', 'playwright', 'vitest'],
+  debugging: ['debug', 'log', 'error', 'trace', 'stack', 'breakpoint'],
+  ci_cd: ['github-actions', 'gitlab-ci', 'jenkins', 'circleci', 'travis'],
+  infrastructure: ['terraform', 'ansible', 'pulumi', 'vagrant'],
+  networking: ['curl', 'wget', 'ssh', 'scp', 'rsync', 'nginx', 'caddy'],
+  security: ['ssl', 'tls', 'cert', 'auth', 'oauth', 'jwt'],
+};
+
+// Multi-word topic patterns for more specific detection
+const MULTIWORD_TOPIC_PATTERNS: Array<{ pattern: RegExp; topic: string }> = [
+  { pattern: /kubernetes\s+deploy/i, topic: 'kubernetes deployment' },
+  { pattern: /docker\s+compose/i, topic: 'docker compose' },
+  { pattern: /ci\s*\/?\s*cd|continuous\s+(integration|deployment)/i, topic: 'ci/cd' },
+  { pattern: /api\s+(design|gateway|endpoint)/i, topic: 'api design' },
+  { pattern: /unit\s+test/i, topic: 'unit testing' },
+  { pattern: /integration\s+test/i, topic: 'integration testing' },
+  { pattern: /e2e\s+test|end.to.end/i, topic: 'e2e testing' },
+  { pattern: /performance\s+(test|optim)/i, topic: 'performance' },
+  { pattern: /memory\s+(leak|usage|profil)/i, topic: 'memory profiling' },
+  { pattern: /security\s+(scan|audit|vulnerab)/i, topic: 'security' },
+  { pattern: /database\s+migration/i, topic: 'database migration' },
+  { pattern: /code\s+review/i, topic: 'code review' },
+  { pattern: /refactor/i, topic: 'refactoring' },
+  { pattern: /dependency\s+upd/i, topic: 'dependency updates' },
+  { pattern: /type\s*(script|error|check)/i, topic: 'typescript' },
+  { pattern: /graphql/i, topic: 'graphql' },
+  { pattern: /rest\s*api/i, topic: 'rest api' },
+  { pattern: /websocket/i, topic: 'websocket' },
+  { pattern: /microservice/i, topic: 'microservices' },
+  { pattern: /monorepo/i, topic: 'monorepo' },
+  { pattern: /serverless/i, topic: 'serverless' },
+];
+
+// Browser domain to topic mapping
+const BROWSER_DOMAIN_TOPICS: Record<string, string> = {
+  'stackoverflow.com': 'research',
+  'github.com': 'code',
+  'docs.github.com': 'documentation',
+  'developer.mozilla.org': 'web development',
+  'nodejs.org': 'node',
+  'typescriptlang.org': 'typescript',
+  'react.dev': 'react',
+  'vuejs.org': 'vue',
+  'kubernetes.io': 'kubernetes',
+  'docs.docker.com': 'docker',
+  'docs.aws.amazon.com': 'aws',
+  'cloud.google.com': 'gcp',
+  'docs.microsoft.com': 'azure',
+  'rust-lang.org': 'rust',
+  'go.dev': 'go',
+  'python.org': 'python',
 };
 
 /**
@@ -141,7 +198,9 @@ export class Analyzer {
         const session = this.createSession(
           currentSessionEvents,
           clusters,
+          // biome-ignore lint/style/noNonNullAssertion: Guaranteed non-null in this branch
           sessionStart!,
+          // biome-ignore lint/style/noNonNullAssertion: Guaranteed non-null in this branch
           lastEventTime!,
           sessions.length > 0 ? Math.round(gapMs / 60000) : undefined
         );
@@ -254,11 +313,20 @@ export class Analyzer {
   /**
    * Detect topic from an event
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Topic detection with many patterns
   private detectTopic(event: Event): string {
     if (event.source === 'shell') {
       const data = event.data as ShellEventData;
       const command = data.command.toLowerCase();
 
+      // First, check for multi-word patterns (more specific)
+      for (const { pattern, topic } of MULTIWORD_TOPIC_PATTERNS) {
+        if (pattern.test(command)) {
+          return topic;
+        }
+      }
+
+      // Then check single-word keywords
       for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
         if (keywords.some((kw) => command.includes(kw))) {
           return topic;
@@ -269,6 +337,71 @@ export class Analyzer {
       const firstWord = data.command.split(/\s+/)[0];
       if (firstWord && firstWord.length > 1) {
         return firstWord;
+      }
+    }
+
+    if (event.source === 'browser') {
+      const data = event.data as BrowserEventData;
+
+      // Check domain-based topic mapping
+      if (BROWSER_DOMAIN_TOPICS[data.domain]) {
+        return BROWSER_DOMAIN_TOPICS[data.domain];
+      }
+
+      // Check category
+      if (data.category) {
+        return data.category;
+      }
+
+      // Check title for multi-word patterns
+      const title = data.title.toLowerCase();
+      for (const { pattern, topic } of MULTIWORD_TOPIC_PATTERNS) {
+        if (pattern.test(title)) {
+          return topic;
+        }
+      }
+
+      // Check title for single-word keywords
+      for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
+        if (keywords.some((kw) => title.includes(kw))) {
+          return topic;
+        }
+      }
+
+      return 'research';
+    }
+
+    if (event.source === 'editor') {
+      // Detect language from file path
+      const filePath =
+        (event.data as { filePath?: string; file_path?: string }).filePath ||
+        (event.data as { filePath?: string; file_path?: string }).file_path ||
+        '';
+      const ext = filePath.split('.').pop()?.toLowerCase();
+
+      const extToTopic: Record<string, string> = {
+        rs: 'rust',
+        py: 'python',
+        js: 'javascript',
+        ts: 'typescript',
+        tsx: 'react',
+        jsx: 'react',
+        vue: 'vue',
+        go: 'go',
+        java: 'java',
+        rb: 'ruby',
+        php: 'php',
+        sql: 'database',
+        yaml: 'configuration',
+        yml: 'configuration',
+        json: 'configuration',
+        toml: 'configuration',
+        md: 'documentation',
+        dockerfile: 'docker',
+      };
+
+      if (ext && extToTopic[ext]) {
+        return extToTopic[ext];
       }
     }
 

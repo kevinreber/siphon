@@ -71,6 +71,7 @@ export async function digestCommand(options: DigestOptions): Promise<void> {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex digest display with multiple sections
 function displayDigest(
   result: ReturnType<Analyzer['analyze']>,
   days: number,

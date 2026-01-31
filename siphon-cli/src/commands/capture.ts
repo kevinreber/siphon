@@ -6,6 +6,7 @@
  */
 
 import { Analyzer } from '../analyzer.js';
+import { BrowserHistoryCollector } from '../collectors/browser.js';
 import { GitCollector } from '../collectors/git.js';
 import { ShellHistoryCollector } from '../collectors/shell.js';
 import { displayGeneratedContent, generateWithClaude, isClaudeAvailable } from '../generate.js';
@@ -17,6 +18,7 @@ interface CaptureOptions {
   generate?: boolean;
   topic?: string;
   verbose?: boolean;
+  browser?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ function parseTimeDuration(duration: string): number {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Main entry point with multiple collector paths
 export async function captureCommand(options: CaptureOptions): Promise<void> {
   const durationMs = parseTimeDuration(options.time);
   const endTime = new Date();
@@ -75,6 +78,27 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
     }
   } catch (_err) {
     console.log('  Git: Could not read git log');
+  }
+
+  // Collect browser history (if enabled)
+  if (options.browser !== false) {
+    const browserCollector = new BrowserHistoryCollector();
+    if (browserCollector.isAvailable()) {
+      try {
+        const browserEvents = await browserCollector.collect(startTime, endTime, true);
+        events.push(...browserEvents);
+        if (options.verbose) {
+          const browsers = browserCollector.getAvailableBrowsers().join(', ');
+          console.log(`  Browser (${browsers}): ${browserEvents.length} visits`);
+        }
+      } catch (_err) {
+        if (options.verbose) {
+          console.log('  Browser: Could not read history (browser may be open)');
+        }
+      }
+    } else if (options.verbose) {
+      console.log('  Browser: No supported browser history found');
+    }
   }
 
   if (events.length === 0) {
@@ -126,6 +150,7 @@ export async function captureCommand(options: CaptureOptions): Promise<void> {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex display with multiple output sections
 function displayResults(result: ReturnType<Analyzer['analyze']>, options: CaptureOptions): void {
   const { summary, clusters, ideas } = result;
 

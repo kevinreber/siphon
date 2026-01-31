@@ -144,7 +144,14 @@ impl EventStore {
         self.conn.execute(
             "INSERT INTO events (id, timestamp, source, event_type, event_data, project)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![id, timestamp, source.to_string(), event_type, event_data, project],
+            params![
+                id,
+                timestamp,
+                source.to_string(),
+                event_type,
+                event_data,
+                project
+            ],
         )?;
 
         Ok(id)

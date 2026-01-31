@@ -63,6 +63,7 @@ struct EventsResponse {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct Event {
     id: String,
     timestamp: String,
@@ -186,7 +187,7 @@ fn print_event(event: &Event) {
             let exit_code = data["exit_code"].as_i64().unwrap_or(0);
             let duration = data["duration_ms"].as_u64().unwrap_or(0);
 
-            let status = if exit_code == 0 { "" } else { "" };
+            let status = if exit_code == 0 { "✓" } else { "✗" };
             let truncated = if cmd.len() > 60 {
                 format!("{}...", &cmd[..60])
             } else {
@@ -231,14 +232,17 @@ fn cmd_ideas(api_url: &str, hours: u32) {
                 }
 
                 // Basic analysis - count topics
-                let mut topics: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+                let mut topics: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
                 let mut failed_commands = 0;
                 let mut total_commands = 0;
 
                 for event in &events {
                     if event.source == "shell" {
                         total_commands += 1;
-                        if let Ok(data) = serde_json::from_str::<serde_json::Value>(&event.event_data) {
+                        if let Ok(data) =
+                            serde_json::from_str::<serde_json::Value>(&event.event_data)
+                        {
                             if data["exit_code"].as_i64().unwrap_or(0) != 0 {
                                 failed_commands += 1;
                             }
@@ -267,7 +271,10 @@ fn cmd_ideas(api_url: &str, hours: u32) {
 
                 if struggle_score > 20 {
                     println!("High Struggle Score: {}%", struggle_score);
-                    println!("  {} failed commands out of {}", failed_commands, total_commands);
+                    println!(
+                        "  {} failed commands out of {}",
+                        failed_commands, total_commands
+                    );
                     println!("  This debugging session could make great content!");
                     println!();
                 }
@@ -282,7 +289,10 @@ fn cmd_ideas(api_url: &str, hours: u32) {
                 }
 
                 println!();
-                println!("For detailed analysis, use: siphon capture --time {}h", hours);
+                println!(
+                    "For detailed analysis, use: siphon capture --time {}h",
+                    hours
+                );
             } else {
                 eprintln!("Error: {}", resp.status());
             }
