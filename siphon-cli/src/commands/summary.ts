@@ -4,10 +4,10 @@
  * Generates a human-readable summary of a work session.
  */
 
-import { Analyzer } from "../analyzer.js";
-import { ShellHistoryCollector } from "../collectors/shell.js";
-import { GitCollector } from "../collectors/git.js";
-import { Event } from "../types.js";
+import { Analyzer } from '../analyzer.js';
+import { GitCollector } from '../collectors/git.js';
+import { ShellHistoryCollector } from '../collectors/shell.js';
+import type { Event } from '../types.js';
 
 interface SummaryOptions {
   time: string;
@@ -19,15 +19,15 @@ function parseTimeDuration(duration: string): number {
     throw new Error(`Invalid duration: ${duration}`);
   }
 
-  const value = parseInt(match[1], 10);
-  const unit = match[2] || "m";
+  const value = Number.parseInt(match[1], 10);
+  const unit = match[2] || 'm';
 
   switch (unit) {
-    case "h":
+    case 'h':
       return value * 60 * 60 * 1000;
-    case "m":
+    case 'm':
       return value * 60 * 1000;
-    case "s":
+    case 's':
       return value * 1000;
     default:
       return value * 60 * 1000;
@@ -45,19 +45,19 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
   const shellCollector = new ShellHistoryCollector();
   try {
     events.push(...(await shellCollector.collect(startTime, endTime)));
-  } catch (err) {
+  } catch (_err) {
     // Ignore
   }
 
   const gitCollector = new GitCollector();
   try {
     events.push(...(await gitCollector.collect(startTime, endTime)));
-  } catch (err) {
+  } catch (_err) {
     // Ignore
   }
 
   if (events.length === 0) {
-    console.log("\nNo activity found in the specified time range.");
+    console.log('\nNo activity found in the specified time range.');
     return;
   }
 
@@ -67,9 +67,9 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
 
   // Generate summary
   console.log();
-  console.log("╔════════════════════════════════════════════════════════════╗");
-  console.log("║                     SESSION SUMMARY                         ║");
-  console.log("╚════════════════════════════════════════════════════════════╝");
+  console.log('╔════════════════════════════════════════════════════════════╗');
+  console.log('║                     SESSION SUMMARY                         ║');
+  console.log('╚════════════════════════════════════════════════════════════╝');
   console.log();
 
   // Time info
@@ -82,9 +82,9 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
 
   // What you worked on
   if (result.summary.topTopics.length > 0) {
-    console.log("📝 What you worked on:");
+    console.log('📝 What you worked on:');
     for (const topic of result.summary.topTopics.slice(0, 3)) {
-      const topicTime = topic.timeMinutes > 0 ? ` (${topic.timeMinutes} min)` : "";
+      const topicTime = topic.timeMinutes > 0 ? ` (${topic.timeMinutes} min)` : '';
       console.log(`   • ${capitalize(topic.topic)}${topicTime}`);
     }
     console.log();
@@ -92,7 +92,7 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
 
   // Struggle indicator
   if (result.summary.struggleScore > 30) {
-    const emoji = result.summary.struggleScore > 60 ? "🔥" : "💪";
+    const emoji = result.summary.struggleScore > 60 ? '🔥' : '💪';
     console.log(`${emoji} Debugging intensity: ${result.summary.struggleScore}%`);
     console.log(
       `   ${result.summary.failedCommands} commands failed out of ${result.summary.totalCommands}`
@@ -102,7 +102,7 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
 
   // Aha moments
   if (result.summary.ahaMonments.length > 0) {
-    console.log("💡 Breakthrough moments:");
+    console.log('💡 Breakthrough moments:');
     for (const aha of result.summary.ahaMonments) {
       console.log(`   • ${aha.description}`);
     }
@@ -111,10 +111,10 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
 
   // Content potential
   if (result.ideas.length > 0) {
-    const highConfidence = result.ideas.filter((i) => i.confidence === "high");
-    const medConfidence = result.ideas.filter((i) => i.confidence === "medium");
+    const highConfidence = result.ideas.filter((i) => i.confidence === 'high');
+    const medConfidence = result.ideas.filter((i) => i.confidence === 'medium');
 
-    console.log("🎬 Content potential:");
+    console.log('🎬 Content potential:');
     if (highConfidence.length > 0) {
       console.log(`   ${highConfidence.length} high-confidence idea(s)`);
     }
@@ -126,14 +126,14 @@ export async function summaryCommand(options: SummaryOptions): Promise<void> {
   }
 
   console.log();
-  console.log("─".repeat(60));
+  console.log('─'.repeat(60));
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
   });
 }
 

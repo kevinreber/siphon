@@ -5,29 +5,29 @@
  * and converts to Siphon events.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
-import { Event, ShellEventData } from "../types.js";
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import type { Event, ShellEventData } from '../types.js';
 
 export class ShellHistoryCollector {
   private historyPath: string;
-  private shell: "zsh" | "bash";
+  private shell: 'zsh' | 'bash';
 
   constructor() {
     // Detect shell and history file
-    const zshHistory = path.join(os.homedir(), ".zsh_history");
-    const bashHistory = path.join(os.homedir(), ".bash_history");
+    const zshHistory = path.join(os.homedir(), '.zsh_history');
+    const bashHistory = path.join(os.homedir(), '.bash_history');
 
     if (fs.existsSync(zshHistory)) {
       this.historyPath = zshHistory;
-      this.shell = "zsh";
+      this.shell = 'zsh';
     } else if (fs.existsSync(bashHistory)) {
       this.historyPath = bashHistory;
-      this.shell = "bash";
+      this.shell = 'bash';
     } else {
-      this.historyPath = "";
-      this.shell = "bash";
+      this.historyPath = '';
+      this.shell = 'bash';
     }
   }
 
@@ -39,19 +39,19 @@ export class ShellHistoryCollector {
       return [];
     }
 
-    const content = fs.readFileSync(this.historyPath, "utf-8");
-    const lines = content.split("\n");
+    const content = fs.readFileSync(this.historyPath, 'utf-8');
+    const lines = content.split('\n');
 
     const events: Event[] = [];
 
-    if (this.shell === "zsh") {
+    if (this.shell === 'zsh') {
       // Zsh extended history format: : timestamp:0;command
       const historyRegex = /^:\s*(\d+):\d+;(.+)$/;
 
       for (const line of lines) {
         const match = line.match(historyRegex);
         if (match) {
-          const timestamp = new Date(parseInt(match[1], 10) * 1000);
+          const timestamp = new Date(Number.parseInt(match[1], 10) * 1000);
           const command = match[2];
 
           // Filter by time range
@@ -72,7 +72,7 @@ export class ShellHistoryCollector {
 
       for (const line of lines) {
         const command = line.trim();
-        if (!command || command.startsWith("#")) continue;
+        if (!command || command.startsWith('#')) continue;
 
         // Filter by time range
         if (estimatedTime >= startTime && estimatedTime <= endTime) {
@@ -108,8 +108,8 @@ export class ShellHistoryCollector {
     return {
       id: `shell-${timestamp.getTime()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp,
-      source: "shell",
-      eventType: exitCode === 0 ? "command" : "command_failed",
+      source: 'shell',
+      eventType: exitCode === 0 ? 'command' : 'command_failed',
       data,
       project: this.detectProject(command),
     };
@@ -120,9 +120,7 @@ export class ShellHistoryCollector {
    */
   private detectGitBranch(command: string): string | undefined {
     // Check if it's a git command with branch reference
-    const branchMatch = command.match(
-      /git\s+(checkout|switch|branch|merge|rebase)\s+(\S+)/
-    );
+    const branchMatch = command.match(/git\s+(checkout|switch|branch|merge|rebase)\s+(\S+)/);
     if (branchMatch) {
       return branchMatch[2];
     }

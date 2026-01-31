@@ -11,7 +11,7 @@ export interface Event {
   project?: string;
 }
 
-export type EventSource = "shell" | "editor" | "filesystem" | "git" | "browser";
+export type EventSource = 'shell' | 'editor' | 'filesystem' | 'git' | 'browser';
 
 export interface ShellEventData {
   command: string;
@@ -42,14 +42,14 @@ export interface Cluster {
   startTime: Date;
   endTime: Date;
   durationMinutes: number;
-  confidence: "high" | "medium" | "low";
+  confidence: 'high' | 'medium' | 'low';
   struggleScore: number;
   ahaIndex: number;
   signals: LearningSignal[];
 }
 
 export interface LearningSignal {
-  type: "research" | "troubleshooting" | "debugging" | "exploration" | "breakthrough";
+  type: 'research' | 'troubleshooting' | 'debugging' | 'exploration' | 'breakthrough';
   description: string;
   intensity: number; // 0-100
 }
@@ -58,9 +58,9 @@ export interface ContentIdea {
   title: string;
   hook: string;
   angle: string;
-  confidence: "high" | "medium" | "low";
+  confidence: 'high' | 'medium' | 'low';
   evidence: string[];
-  suggestedFormat: "video" | "blog" | "thread" | "newsletter";
+  suggestedFormat: 'video' | 'blog' | 'thread' | 'newsletter';
 }
 
 export interface Session {

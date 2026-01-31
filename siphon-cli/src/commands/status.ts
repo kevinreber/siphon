@@ -4,8 +4,8 @@
  * Shows a quick overview of recent activity.
  */
 
-import { ShellHistoryCollector } from "../collectors/shell.js";
-import { Event, ShellEventData } from "../types.js";
+import { ShellHistoryCollector } from '../collectors/shell.js';
+import type { Event, ShellEventData } from '../types.js';
 
 interface StatusOptions {
   time: string;
@@ -17,15 +17,15 @@ function parseTimeDuration(duration: string): number {
     throw new Error(`Invalid duration: ${duration}`);
   }
 
-  const value = parseInt(match[1], 10);
-  const unit = match[2] || "m";
+  const value = Number.parseInt(match[1], 10);
+  const unit = match[2] || 'm';
 
   switch (unit) {
-    case "h":
+    case 'h':
       return value * 60 * 60 * 1000;
-    case "m":
+    case 'm':
       return value * 60 * 1000;
-    case "s":
+    case 's':
       return value * 1000;
     default:
       return value * 60 * 1000;
@@ -45,13 +45,13 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
   try {
     events = await shellCollector.collect(startTime, endTime);
-  } catch (err) {
-    console.log("Could not read shell history.");
+  } catch (_err) {
+    console.log('Could not read shell history.');
     return;
   }
 
   if (events.length === 0) {
-    console.log("No commands found in the specified time range.");
+    console.log('No commands found in the specified time range.');
     return;
   }
 
@@ -73,23 +73,23 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
   console.log(`Commands: ${events.length} (${failedCount} failed)`);
   console.log();
-  console.log("Tools used:");
+  console.log('Tools used:');
   for (const [tool, count] of sortedTools.slice(0, 10)) {
-    const bar = "█".repeat(Math.min(Math.ceil(count / 2), 20));
+    const bar = '█'.repeat(Math.min(Math.ceil(count / 2), 20));
     console.log(`  ${tool.padEnd(15)} ${bar} ${count}`);
   }
 
   // Show recent commands
   console.log();
-  console.log("Recent commands:");
+  console.log('Recent commands:');
   const recentEvents = events.slice(-10).reverse();
   for (const event of recentEvents) {
     const data = event.data as ShellEventData;
-    const status = data.exitCode === 0 ? "✓" : "✗";
-    const cmd = data.command.length > 60 ? data.command.slice(0, 60) + "..." : data.command;
-    const time = event.timestamp.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
+    const status = data.exitCode === 0 ? '✓' : '✗';
+    const cmd = data.command.length > 60 ? `${data.command.slice(0, 60)}...` : data.command;
+    const time = event.timestamp.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
       hour12: false,
     });
     console.log(`  ${time} ${status} ${cmd}`);
