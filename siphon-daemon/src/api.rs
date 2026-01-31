@@ -7,11 +7,14 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::info;
 
+use crate::dedup::EventKey;
 use crate::redact::redact_command;
 use crate::storage::{EditorEventData, EventSource, ShellEventData};
+use crate::watcher::{FileEventData, WatcherConfig, FileWatcher};
 use crate::AppState;
 
 /// Health check response
@@ -67,6 +70,25 @@ pub async fn ingest_shell_event(
             "Redacted {} sensitive pattern(s) from command",
             redaction_result.redaction_count
         );
+    }
+
+    // Check for duplicate events
+    let dedup_key = EventKey::from_shell(&redacted_command, payload.exit_code);
+    {
+        let mut dedup = state.dedup.lock().unwrap();
+        if !dedup.should_process(&dedup_key) {
+            info!("Skipped duplicate shell event");
+            return (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "id": null, "duplicate": true })),
+            );
+        }
+    }
+
+    // Record activity for idle detection
+    {
+        let mut idle = state.idle_detector.lock().unwrap();
+        idle.record_activity("shell");
     }
 
     // Detect project from cwd
@@ -127,6 +149,25 @@ pub async fn ingest_editor_event(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<EditorEventRequest>,
 ) -> impl IntoResponse {
+    // Check for duplicate events
+    let dedup_key = EventKey::from_editor(&payload.action, &payload.file_path);
+    {
+        let mut dedup = state.dedup.lock().unwrap();
+        if !dedup.should_process(&dedup_key) {
+            info!("Skipped duplicate editor event");
+            return (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "id": null, "duplicate": true })),
+            );
+        }
+    }
+
+    // Record activity for idle detection
+    {
+        let mut idle = state.idle_detector.lock().unwrap();
+        idle.record_activity("editor");
+    }
+
     // Detect project from file path
     let project = detect_project(&payload.file_path);
 
@@ -158,6 +199,219 @@ pub async fn ingest_editor_event(
             )
         }
     }
+}
+
+/// Filesystem event request body
+#[derive(Debug, Deserialize)]
+pub struct FilesystemEventRequest {
+    pub action: String,
+    pub file_path: String,
+    #[serde(default)]
+    pub file_type: Option<String>,
+    #[serde(default)]
+    pub is_directory: bool,
+}
+
+/// Ingest filesystem event
+pub async fn ingest_filesystem_event(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<FilesystemEventRequest>,
+) -> impl IntoResponse {
+    // Check for duplicate events
+    let dedup_key = EventKey::from_filesystem(&payload.action, &payload.file_path);
+    {
+        let mut dedup = state.dedup.lock().unwrap();
+        if !dedup.should_process(&dedup_key) {
+            return (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "id": null, "duplicate": true })),
+            );
+        }
+    }
+
+    // Record activity for idle detection
+    {
+        let mut idle = state.idle_detector.lock().unwrap();
+        idle.record_activity("filesystem");
+    }
+
+    // Detect project from file path
+    let project = detect_project(&payload.file_path);
+
+    let event_data = FileEventData {
+        action: payload.action.clone(),
+        file_path: payload.file_path.clone(),
+        file_type: payload.file_type.clone(),
+        is_directory: payload.is_directory,
+    };
+
+    let event_data_json = serde_json::to_string(&event_data).unwrap_or_default();
+
+    let store = state.store.lock().unwrap();
+    match store.insert_event(
+        EventSource::Filesystem,
+        &payload.action,
+        &event_data_json,
+        project.as_deref(),
+    ) {
+        Ok(id) => {
+            info!("Recorded filesystem event: {} on {}", payload.action, payload.file_path);
+            (StatusCode::CREATED, Json(serde_json::json!({ "id": id })))
+        }
+        Err(e) => {
+            tracing::error!("Failed to store event: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            )
+        }
+    }
+}
+
+/// Watch path request body
+#[derive(Debug, Deserialize)]
+pub struct WatchPathRequest {
+    pub path: String,
+    #[serde(default)]
+    pub recursive: Option<bool>,
+}
+
+/// Add a path to watch
+pub async fn add_watch_path(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<WatchPathRequest>,
+) -> impl IntoResponse {
+    let path = PathBuf::from(&payload.path);
+
+    if !path.exists() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "Path does not exist" })),
+        );
+    }
+
+    let mut watcher_guard = state.file_watcher.lock().unwrap();
+
+    // Initialize watcher if not already running
+    if watcher_guard.is_none() {
+        let config = WatcherConfig {
+            paths: vec![path.clone()],
+            debounce_ms: 500,
+            recursive: payload.recursive.unwrap_or(true),
+        };
+        let mut watcher = FileWatcher::new(config);
+        match watcher.start() {
+            Ok(_) => {
+                info!("Started file watcher for: {:?}", path);
+                *watcher_guard = Some(watcher);
+                return (
+                    StatusCode::CREATED,
+                    Json(serde_json::json!({ "success": true, "path": payload.path })),
+                );
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": e.to_string() })),
+                );
+            }
+        }
+    }
+
+    // Add path to existing watcher
+    if let Some(ref mut watcher) = *watcher_guard {
+        match watcher.watch_path(&path) {
+            Ok(_) => {
+                info!("Added watch path: {:?}", path);
+                (
+                    StatusCode::CREATED,
+                    Json(serde_json::json!({ "success": true, "path": payload.path })),
+                )
+            }
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            ),
+        }
+    } else {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "Watcher not initialized" })),
+        )
+    }
+}
+
+/// Remove a path from watching
+pub async fn remove_watch_path(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<WatchPathRequest>,
+) -> impl IntoResponse {
+    let path = PathBuf::from(&payload.path);
+
+    let mut watcher_guard = state.file_watcher.lock().unwrap();
+
+    if let Some(ref mut watcher) = *watcher_guard {
+        match watcher.unwatch_path(&path) {
+            Ok(_) => {
+                info!("Removed watch path: {:?}", path);
+                (
+                    StatusCode::OK,
+                    Json(serde_json::json!({ "success": true, "path": payload.path })),
+                )
+            }
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            ),
+        }
+    } else {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "No watcher active" })),
+        )
+    }
+}
+
+/// Session info response
+#[derive(Serialize)]
+pub struct SessionInfoResponse {
+    pub active: bool,
+    pub state: String,
+    pub session_id: Option<String>,
+    pub started_at: Option<String>,
+    pub duration_minutes: Option<u64>,
+    pub event_count: Option<u64>,
+    pub idle_periods: Option<usize>,
+}
+
+/// Get current session info
+pub async fn get_session_info(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let idle = state.idle_detector.lock().unwrap();
+    let session = idle.get_session();
+
+    let response = if let Some(s) = session {
+        SessionInfoResponse {
+            active: idle.in_session(),
+            state: format!("{:?}", idle.state()).to_lowercase(),
+            session_id: Some(s.session_id),
+            started_at: Some(s.started_at.to_rfc3339()),
+            duration_minutes: Some(s.duration_minutes),
+            event_count: Some(s.event_count),
+            idle_periods: Some(s.idle_periods.len()),
+        }
+    } else {
+        SessionInfoResponse {
+            active: false,
+            state: format!("{:?}", idle.state()).to_lowercase(),
+            session_id: None,
+            started_at: None,
+            duration_minutes: None,
+            event_count: None,
+            idle_periods: None,
+        }
+    };
+
+    Json(response)
 }
 
 /// Query parameters for events endpoint

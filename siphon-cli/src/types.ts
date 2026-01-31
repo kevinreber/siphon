@@ -7,11 +7,27 @@ export interface Event {
   timestamp: Date;
   source: EventSource;
   eventType: string;
-  data: ShellEventData | EditorEventData | GitEventData;
+  data: ShellEventData | EditorEventData | GitEventData | BrowserEventData | FilesystemEventData;
   project?: string;
 }
 
 export type EventSource = 'shell' | 'editor' | 'filesystem' | 'git' | 'browser';
+
+export interface BrowserEventData {
+  url: string;
+  title: string;
+  visitCount: number;
+  browser: 'chrome' | 'firefox' | 'safari' | 'edge';
+  domain: string;
+  category?: string;
+}
+
+export interface FilesystemEventData {
+  action: string;
+  filePath: string;
+  fileType?: string;
+  isDirectory: boolean;
+}
 
 export interface ShellEventData {
   command: string;
