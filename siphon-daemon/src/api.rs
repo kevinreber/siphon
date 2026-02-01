@@ -648,3 +648,81 @@ fn truncate_command(cmd: &str) -> &str {
         cmd
     }
 }
+
+/// Active window response
+#[derive(Serialize)]
+pub struct ActiveWindowResponse {
+    pub tracking_enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window: Option<crate::window::WindowInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+}
+
+/// Get current active window
+pub async fn get_active_window(State(state): State<Arc<AppState>>) -> Json<ActiveWindowResponse> {
+    let tracker_guard = state.window_tracker.lock().unwrap();
+
+    match &*tracker_guard {
+        Some(tracker) => Json(ActiveWindowResponse {
+            tracking_enabled: true,
+            window: tracker.current_window().cloned(),
+            duration_ms: Some(tracker.current_window_duration().as_millis() as u64),
+        }),
+        None => Json(ActiveWindowResponse {
+            tracking_enabled: false,
+            window: None,
+            duration_ms: None,
+        }),
+    }
+}
+
+/// Query parameters for summary endpoint
+#[derive(Debug, Deserialize)]
+pub struct SummaryQuery {
+    /// Number of hours to summarize (default: 8)
+    #[serde(default = "default_summary_hours")]
+    pub hours: u32,
+}
+
+fn default_summary_hours() -> u32 {
+    8
+}
+
+/// Get session summary
+pub async fn get_session_summary(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SummaryQuery>,
+) -> impl IntoResponse {
+    use crate::summary::{SummaryConfig, SummaryGenerator};
+
+    let store = state.store.lock().unwrap();
+    let generator = SummaryGenerator::new(SummaryConfig::default());
+
+    match generator.generate_recent_summary(&store, query.hours) {
+        Some(summary) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "summary": summary })),
+        ),
+        None => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "summary": null,
+                "message": "Not enough data for summary"
+            })),
+        ),
+    }
+}
+
+/// Get current meeting state
+pub async fn get_meeting_state(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let detector = state.meeting_detector.lock().unwrap();
+    let state = detector.state();
+
+    Json(serde_json::json!({
+        "in_meeting": state.in_meeting,
+        "platform": state.platform,
+        "started_at": state.started_at,
+        "title": state.title
+    }))
+}

@@ -4,12 +4,17 @@
 //! Runs on localhost:9847 and stores events in SQLite.
 
 mod api;
+pub mod clipboard;
 pub mod dedup;
+pub mod hotkey;
 pub mod idle;
+pub mod meeting;
 pub mod redact;
 mod storage;
+pub mod summary;
 pub mod triggers;
 pub mod watcher;
+pub mod window;
 
 use axum::{
     routing::{get, post},
@@ -23,10 +28,14 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
+use crate::clipboard::{ClipboardConfig, ClipboardTracker};
 use crate::dedup::{DedupConfig, Deduplicator};
+use crate::hotkey::{HotkeyConfig, HotkeyManager};
 use crate::idle::{IdleConfig, IdleDetector};
+use crate::meeting::{MeetingConfig, MeetingDetector};
 use crate::storage::{EventSource, EventStore};
 use crate::watcher::{FileWatcher, WatcherConfig};
+use crate::window::{WindowConfig, WindowTracker};
 
 /// Shared application state
 pub struct AppState {
@@ -34,6 +43,10 @@ pub struct AppState {
     pub dedup: Mutex<Deduplicator>,
     pub idle_detector: Mutex<IdleDetector>,
     pub file_watcher: Mutex<Option<FileWatcher>>,
+    pub window_tracker: Mutex<Option<WindowTracker>>,
+    pub clipboard_tracker: Mutex<Option<ClipboardTracker>>,
+    pub hotkey_manager: Mutex<Option<HotkeyManager>>,
+    pub meeting_detector: Mutex<MeetingDetector>,
 }
 
 #[tokio::main]
@@ -105,11 +118,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    // Initialize window tracker (optional - disabled with SIPHON_DISABLE_WINDOW_TRACKING=1)
+    let window_tracker = if std::env::var("SIPHON_DISABLE_WINDOW_TRACKING").is_ok() {
+        info!("Window tracking disabled via environment variable");
+        None
+    } else {
+        info!("Window tracking enabled");
+        Some(WindowTracker::new(WindowConfig::default()))
+    };
+
+    // Initialize clipboard tracker (optional - disabled with SIPHON_DISABLE_CLIPBOARD_TRACKING=1)
+    let clipboard_tracker = if std::env::var("SIPHON_DISABLE_CLIPBOARD_TRACKING").is_ok() {
+        info!("Clipboard tracking disabled via environment variable");
+        None
+    } else {
+        let tracker = ClipboardTracker::new(ClipboardConfig::default());
+        if tracker.is_available() {
+            info!("Clipboard tracking enabled");
+            Some(tracker)
+        } else {
+            warn!("Clipboard tracking unavailable (no clipboard access)");
+            None
+        }
+    };
+
+    // Initialize hotkey manager (optional - disabled with SIPHON_DISABLE_HOTKEYS=1)
+    // NOTE: On macOS, this must be created on the main thread (which we are on)
+    let hotkey_manager = if std::env::var("SIPHON_DISABLE_HOTKEYS").is_ok() {
+        info!("Hotkey system disabled via environment variable");
+        None
+    } else {
+        let manager = HotkeyManager::new(HotkeyConfig::default());
+        if manager.is_available() {
+            manager.start_listener();
+            info!("Hotkey system enabled (Cmd+Shift+M to mark moment)");
+            Some(manager)
+        } else {
+            warn!("Hotkey system unavailable");
+            None
+        }
+    };
+
+    // Initialize meeting detector
+    let meeting_detector = MeetingDetector::new(MeetingConfig::default());
+    info!("Meeting detection enabled");
+
     let state = Arc::new(AppState {
         store: Mutex::new(store),
         dedup: Mutex::new(dedup),
         idle_detector: Mutex::new(idle_detector),
         file_watcher: Mutex::new(file_watcher),
+        window_tracker: Mutex::new(window_tracker),
+        clipboard_tracker: Mutex::new(clipboard_tracker),
+        hotkey_manager: Mutex::new(hotkey_manager),
+        meeting_detector: Mutex::new(meeting_detector),
     });
 
     // Spawn background task for file watching and idle detection
@@ -142,6 +204,127 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 ) {
                                     warn!("Failed to store file event: {}", e);
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for window changes and get current window for other trackers
+            let (current_app, current_window) = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
+                if let Some(ref mut tracker) = *tracker_guard {
+                    if let Some(window_event) = tracker.check_active_window() {
+                        // Record activity for idle detection with app name for categorization
+                        let app_name = window_event.current.app_name.clone();
+                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                            idle.record_activity_with_app("window_change", Some(&app_name));
+                        }
+
+                        // Store the window change event
+                        if let Ok(store) = state_clone.store.lock() {
+                            let event_json =
+                                serde_json::to_string(&window_event).unwrap_or_default();
+                            if let Err(e) = store.insert_event(
+                                EventSource::Window,
+                                "window_change",
+                                &event_json,
+                                None,
+                            ) {
+                                warn!("Failed to store window event: {}", e);
+                            }
+                        }
+                    }
+                    // Return current window for other trackers
+                    (
+                        tracker.current_window().map(|w| w.app_name.clone()),
+                        tracker.current_window().cloned(),
+                    )
+                } else {
+                    (None, None)
+                }
+            } else {
+                (None, None)
+            };
+
+            // Check for meeting state changes
+            if let Ok(mut detector_guard) = state_clone.meeting_detector.try_lock() {
+                let meeting_events = detector_guard.check_window(current_window.as_ref());
+                let in_meeting = detector_guard.in_meeting();
+
+                // Sync meeting state with idle detector
+                if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                    idle.set_in_meeting(in_meeting);
+                }
+
+                for event in meeting_events {
+                    // Record activity for idle detection
+                    if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                        idle.record_activity("meeting");
+                    }
+
+                    // Store the meeting event
+                    if let Ok(store) = state_clone.store.lock() {
+                        let event_json = serde_json::to_string(&event).unwrap_or_default();
+                        if let Err(e) = store.insert_event(
+                            EventSource::Meeting,
+                            &event.event_type.to_string(),
+                            &event_json,
+                            None,
+                        ) {
+                            warn!("Failed to store meeting event: {}", e);
+                        }
+                    }
+                }
+            }
+
+            // Check for clipboard changes
+            if let Ok(mut tracker_guard) = state_clone.clipboard_tracker.try_lock() {
+                if let Some(ref mut tracker) = *tracker_guard {
+                    if let Some(clipboard_event) = tracker.check_clipboard(current_app) {
+                        // Record activity for idle detection
+                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                            idle.record_activity("clipboard");
+                        }
+
+                        // Store the clipboard change event
+                        if let Ok(store) = state_clone.store.lock() {
+                            let event_json =
+                                serde_json::to_string(&clipboard_event).unwrap_or_default();
+                            if let Err(e) = store.insert_event(
+                                EventSource::Clipboard,
+                                "clipboard_change",
+                                &event_json,
+                                None,
+                            ) {
+                                warn!("Failed to store clipboard event: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for hotkey triggers
+            if let Ok(manager_guard) = state_clone.hotkey_manager.try_lock() {
+                if let Some(ref manager) = *manager_guard {
+                    for trigger in manager.poll_triggers() {
+                        info!("Hotkey triggered: {:?}", trigger.action);
+
+                        // Record activity for idle detection
+                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                            idle.record_activity("hotkey");
+                        }
+
+                        // Store the hotkey event
+                        if let Ok(store) = state_clone.store.lock() {
+                            let event_json =
+                                serde_json::to_string(&trigger).unwrap_or_default();
+                            if let Err(e) = store.insert_event(
+                                EventSource::Hotkey,
+                                &trigger.action.to_string(),
+                                &event_json,
+                                None,
+                            ) {
+                                warn!("Failed to store hotkey event: {}", e);
                             }
                         }
                     }
@@ -192,6 +375,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/watch", axum::routing::delete(api::remove_watch_path))
         // Idle/session endpoints
         .route("/session", get(api::get_session_info))
+        // Window tracking
+        .route("/window", get(api::get_active_window))
+        // Meeting tracking
+        .route("/meeting", get(api::get_meeting_state))
+        // Summary/insights
+        .route("/summary", get(api::get_session_summary))
         // Query endpoints
         .route("/events", get(api::get_events))
         .route("/events/recent", get(api::get_recent_events))

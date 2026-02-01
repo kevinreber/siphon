@@ -48,10 +48,37 @@ const IGNORE_PATTERNS: &[&str] = &[
 
 /// File extensions that indicate source code
 const SOURCE_EXTENSIONS: &[&str] = &[
+    // Programming languages
     "rs", "ts", "tsx", "js", "jsx", "py", "go", "java", "c", "cpp", "h", "hpp", "rb", "php",
-    "swift", "kt", "scala", "lua", "vim", "sh", "bash", "zsh", "fish", "sql", "graphql", "yaml",
-    "yml", "json", "toml", "xml", "html", "css", "scss", "sass", "less", "md", "mdx", "vue",
-    "svelte",
+    "swift", "kt", "scala", "lua", "vim", "sh", "bash", "zsh", "fish", "sql", "graphql",
+    // Config/data formats
+    "yaml", "yml", "json", "toml", "xml", "html", "css", "scss", "sass", "less",
+    // Documentation
+    "md", "mdx", "txt", "rst", "adoc",
+    // Frontend frameworks
+    "vue", "svelte",
+];
+
+/// File extensions for creative/design work
+const CREATIVE_EXTENSIONS: &[&str] = &[
+    // Adobe Creative Suite
+    "psd", "ai", "indd", "xd", "aep", "prproj",
+    // Image formats
+    "png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "tiff", "tif", "bmp", "raw", "cr2", "nef",
+    // Design tools
+    "sketch", "fig", "afdesign", "afphoto", "afpub",
+    // 3D modeling
+    "blend", "fbx", "obj", "stl", "3mf", "gltf", "glb", "dae", "3ds", "max", "ma", "mb", "c4d",
+    // 3D printing / CAD
+    "gcode", "step", "stp", "iges", "igs", "dwg", "dxf", "scad", "f3d", "fusion",
+    // Video
+    "mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv",
+    // Audio
+    "mp3", "wav", "flac", "aac", "ogg", "m4a", "aiff",
+    // Audio production (DAW projects)
+    "als", "flp", "logic", "ptx", "rpp", "cpr",
+    // Documents
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pages", "numbers", "key",
 ];
 
 /// File system watcher configuration
@@ -258,6 +285,21 @@ impl FileWatcher {
         }
         false
     }
+
+    /// Check if a file is a creative/design file
+    pub fn is_creative_file(path: &Path) -> bool {
+        if let Some(ext) = path.extension() {
+            if let Some(ext_str) = ext.to_str() {
+                return CREATIVE_EXTENSIONS.contains(&ext_str.to_lowercase().as_str());
+            }
+        }
+        false
+    }
+
+    /// Check if a file is a tracked file (source or creative)
+    pub fn is_tracked_file(path: &Path) -> bool {
+        Self::is_source_file(path) || Self::is_creative_file(path)
+    }
 }
 
 /// Detect project root from a file path
@@ -308,7 +350,43 @@ mod tests {
         assert!(FileWatcher::is_source_file(Path::new("main.rs")));
         assert!(FileWatcher::is_source_file(Path::new("index.tsx")));
         assert!(FileWatcher::is_source_file(Path::new("app.py")));
-        assert!(!FileWatcher::is_source_file(Path::new("image.png")));
+        assert!(!FileWatcher::is_source_file(Path::new("image.png"))); // PNG is creative, not source
         assert!(!FileWatcher::is_source_file(Path::new("data.bin")));
+    }
+
+    #[test]
+    fn test_is_creative_file() {
+        // Adobe files
+        assert!(FileWatcher::is_creative_file(Path::new("design.psd")));
+        assert!(FileWatcher::is_creative_file(Path::new("logo.ai")));
+        // 3D files
+        assert!(FileWatcher::is_creative_file(Path::new("model.blend")));
+        assert!(FileWatcher::is_creative_file(Path::new("print.stl")));
+        assert!(FileWatcher::is_creative_file(Path::new("output.gcode")));
+        // Images
+        assert!(FileWatcher::is_creative_file(Path::new("photo.png")));
+        assert!(FileWatcher::is_creative_file(Path::new("icon.svg")));
+        // Audio/Video
+        assert!(FileWatcher::is_creative_file(Path::new("video.mp4")));
+        assert!(FileWatcher::is_creative_file(Path::new("song.mp3")));
+        // DAW projects
+        assert!(FileWatcher::is_creative_file(Path::new("track.als")));
+        // Not creative
+        assert!(!FileWatcher::is_creative_file(Path::new("main.rs")));
+        assert!(!FileWatcher::is_creative_file(Path::new("data.bin")));
+    }
+
+    #[test]
+    fn test_is_tracked_file() {
+        // Source files are tracked
+        assert!(FileWatcher::is_tracked_file(Path::new("main.rs")));
+        assert!(FileWatcher::is_tracked_file(Path::new("app.py")));
+        // Creative files are tracked
+        assert!(FileWatcher::is_tracked_file(Path::new("design.psd")));
+        assert!(FileWatcher::is_tracked_file(Path::new("model.blend")));
+        assert!(FileWatcher::is_tracked_file(Path::new("photo.png")));
+        // Unknown files are not tracked
+        assert!(!FileWatcher::is_tracked_file(Path::new("data.bin")));
+        assert!(!FileWatcher::is_tracked_file(Path::new("file.xyz")));
     }
 }
