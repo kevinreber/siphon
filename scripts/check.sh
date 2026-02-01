@@ -58,6 +58,12 @@ check_result "Clippy"
 
 cd ..
 
+# Installation tests (quick mode for CI)
+echo ""
+echo "📦 Running installation tests..."
+./scripts/test-install.sh --quick
+check_result "Installation tests"
+
 echo ""
 echo -e "${GREEN}✅ All checks passed!${NC}"
 echo ""

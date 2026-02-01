@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Launchd service for Siphon daemon (macOS)
+
+  Installation:
+    cp com.siphon.daemon.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.siphon.daemon.plist
+
+  Commands:
+    launchctl list | grep siphon
+    launchctl unload ~/Library/LaunchAgents/com.siphon.daemon.plist
+    launchctl load ~/Library/LaunchAgents/com.siphon.daemon.plist
+
+  Logs:
+    tail -f ~/.siphon/daemon.log
+    tail -f ~/.siphon/daemon.error.log
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.siphon.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${HOME}/.local/bin/siphon-daemon</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>${HOME}/.siphon/daemon.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>${HOME}/.siphon/daemon.error.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SIPHON_ENABLED</key>
+        <string>true</string>
+        <key>SIPHON_RETENTION_DAYS</key>
+        <string>30</string>
+    </dict>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

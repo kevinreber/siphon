@@ -152,12 +152,79 @@ siphon/
     └── VISION.md              # Where this project is headed
 ```
 
-## Getting Started
+## Quick Install
 
-See the individual READMEs in each component directory for detailed setup instructions:
+Install everything (CLI, daemon, database, shell hooks) with a single command:
+
+```bash
+./install.sh
+```
+
+That's it! The installer will:
+- Build the CLI and daemon
+- Install binaries to `~/.local/bin`
+- Set up the database at `~/.siphon/events.db`
+- Configure the daemon to start automatically (systemd/launchd)
+- Add shell hooks for real-time command tracking
+
+### Installation Options
+
+```bash
+# Full installation (recommended)
+./install.sh
+
+# CLI only (no background tracking)
+./install.sh --cli-only
+
+# Skip daemon auto-start service
+./install.sh --no-service
+
+# Skip shell hook configuration
+./install.sh --no-hooks
+
+# Custom install location
+./install.sh --prefix /usr/local/bin
+
+# Uninstall completely
+./install.sh --uninstall
+```
+
+### Using Make
+
+```bash
+make install          # Full installation
+make build            # Build without installing
+make start            # Start the daemon
+make stop             # Stop the daemon
+make status           # Check if daemon is running
+make uninstall        # Remove Siphon
+```
+
+### Manual Installation
+
+See the individual READMEs for detailed manual setup:
 
 - [CLI Tool Setup](./siphon-cli/README.md)
 - [Daemon Setup](./siphon-daemon/README.md)
+
+### Requirements
+
+- **Node.js** (v18+) and **npm** for the CLI
+- **Rust** (via [rustup](https://rustup.rs/)) for the daemon
+
+### After Installation
+
+```bash
+# Restart your terminal (or source your shell config)
+source ~/.zshrc  # or ~/.bashrc
+
+# Verify everything is working
+siphon-ctl status     # Should show "Daemon is running"
+siphon status         # Quick overview of recent activity
+
+# After working for a while...
+siphon capture        # Analyze your session and get content ideas
+```
 
 ## Contributing
 
