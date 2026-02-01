@@ -5,7 +5,7 @@ INSTALL_PREFIX ?= $(HOME)/.local/bin
 SHELL := /bin/bash
 
 .PHONY: all install install-cli install-daemon build build-cli build-daemon \
-        clean uninstall start stop status help
+        clean uninstall start stop status help test-install
 
 # Default target
 all: build
@@ -113,7 +113,7 @@ uninstall:
 	@./install.sh --uninstall
 
 # Test targets
-test: test-cli test-daemon
+test: test-cli test-daemon test-install
 
 test-cli:
 	@echo "Running CLI tests..."
@@ -122,6 +122,14 @@ test-cli:
 test-daemon:
 	@echo "Running daemon tests..."
 	@cd siphon-daemon && cargo test --quiet
+
+test-install:
+	@echo "Running installation tests..."
+	@./scripts/test-install.sh
+
+test-install-quick:
+	@echo "Running installation tests (quick mode)..."
+	@./scripts/test-install.sh --quick
 
 # Check/lint targets
 check:
