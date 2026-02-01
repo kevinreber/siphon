@@ -648,3 +648,31 @@ fn truncate_command(cmd: &str) -> &str {
         cmd
     }
 }
+
+/// Active window response
+#[derive(Serialize)]
+pub struct ActiveWindowResponse {
+    pub tracking_enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window: Option<crate::window::WindowInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+}
+
+/// Get current active window
+pub async fn get_active_window(State(state): State<Arc<AppState>>) -> Json<ActiveWindowResponse> {
+    let tracker_guard = state.window_tracker.lock().unwrap();
+
+    match &*tracker_guard {
+        Some(tracker) => Json(ActiveWindowResponse {
+            tracking_enabled: true,
+            window: tracker.current_window().cloned(),
+            duration_ms: Some(tracker.current_window_duration().as_millis() as u64),
+        }),
+        None => Json(ActiveWindowResponse {
+            tracking_enabled: false,
+            window: None,
+            duration_ms: None,
+        }),
+    }
+}

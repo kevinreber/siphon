@@ -10,6 +10,7 @@ pub mod redact;
 mod storage;
 pub mod triggers;
 pub mod watcher;
+pub mod window;
 
 use axum::{
     routing::{get, post},
@@ -27,6 +28,7 @@ use crate::dedup::{DedupConfig, Deduplicator};
 use crate::idle::{IdleConfig, IdleDetector};
 use crate::storage::{EventSource, EventStore};
 use crate::watcher::{FileWatcher, WatcherConfig};
+use crate::window::{WindowConfig, WindowTracker};
 
 /// Shared application state
 pub struct AppState {
@@ -34,6 +36,7 @@ pub struct AppState {
     pub dedup: Mutex<Deduplicator>,
     pub idle_detector: Mutex<IdleDetector>,
     pub file_watcher: Mutex<Option<FileWatcher>>,
+    pub window_tracker: Mutex<Option<WindowTracker>>,
 }
 
 #[tokio::main]
@@ -105,11 +108,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    // Initialize window tracker (optional - disabled with SIPHON_DISABLE_WINDOW_TRACKING=1)
+    let window_tracker = if std::env::var("SIPHON_DISABLE_WINDOW_TRACKING").is_ok() {
+        info!("Window tracking disabled via environment variable");
+        None
+    } else {
+        info!("Window tracking enabled");
+        Some(WindowTracker::new(WindowConfig::default()))
+    };
+
     let state = Arc::new(AppState {
         store: Mutex::new(store),
         dedup: Mutex::new(dedup),
         idle_detector: Mutex::new(idle_detector),
         file_watcher: Mutex::new(file_watcher),
+        window_tracker: Mutex::new(window_tracker),
     });
 
     // Spawn background task for file watching and idle detection
@@ -142,6 +155,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 ) {
                                     warn!("Failed to store file event: {}", e);
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for window changes
+            if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
+                if let Some(ref mut tracker) = *tracker_guard {
+                    if let Some(window_event) = tracker.check_active_window() {
+                        // Record activity for idle detection
+                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                            idle.record_activity("window_change");
+                        }
+
+                        // Store the window change event
+                        if let Ok(store) = state_clone.store.lock() {
+                            let event_json =
+                                serde_json::to_string(&window_event).unwrap_or_default();
+                            if let Err(e) = store.insert_event(
+                                EventSource::Window,
+                                "window_change",
+                                &event_json,
+                                None,
+                            ) {
+                                warn!("Failed to store window event: {}", e);
                             }
                         }
                     }
@@ -192,6 +231,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/watch", axum::routing::delete(api::remove_watch_path))
         // Idle/session endpoints
         .route("/session", get(api::get_session_info))
+        // Window tracking
+        .route("/window", get(api::get_active_window))
         // Query endpoints
         .route("/events", get(api::get_events))
         .route("/events/recent", get(api::get_recent_events))
