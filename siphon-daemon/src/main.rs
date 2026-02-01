@@ -6,7 +6,9 @@
 mod api;
 pub mod clipboard;
 pub mod dedup;
+pub mod hotkey;
 pub mod idle;
+pub mod meeting;
 pub mod redact;
 mod storage;
 pub mod triggers;
@@ -27,7 +29,9 @@ use tracing_subscriber::FmtSubscriber;
 
 use crate::clipboard::{ClipboardConfig, ClipboardTracker};
 use crate::dedup::{DedupConfig, Deduplicator};
+use crate::hotkey::{HotkeyConfig, HotkeyManager};
 use crate::idle::{IdleConfig, IdleDetector};
+use crate::meeting::{MeetingConfig, MeetingDetector};
 use crate::storage::{EventSource, EventStore};
 use crate::watcher::{FileWatcher, WatcherConfig};
 use crate::window::{WindowConfig, WindowTracker};
@@ -40,6 +44,8 @@ pub struct AppState {
     pub file_watcher: Mutex<Option<FileWatcher>>,
     pub window_tracker: Mutex<Option<WindowTracker>>,
     pub clipboard_tracker: Mutex<Option<ClipboardTracker>>,
+    pub hotkey_manager: Mutex<Option<HotkeyManager>>,
+    pub meeting_detector: Mutex<MeetingDetector>,
 }
 
 #[tokio::main]
@@ -135,6 +141,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    // Initialize hotkey manager (optional - disabled with SIPHON_DISABLE_HOTKEYS=1)
+    // NOTE: On macOS, this must be created on the main thread (which we are on)
+    let hotkey_manager = if std::env::var("SIPHON_DISABLE_HOTKEYS").is_ok() {
+        info!("Hotkey system disabled via environment variable");
+        None
+    } else {
+        let manager = HotkeyManager::new(HotkeyConfig::default());
+        if manager.is_available() {
+            manager.start_listener();
+            info!("Hotkey system enabled (Cmd+Shift+M to mark moment)");
+            Some(manager)
+        } else {
+            warn!("Hotkey system unavailable");
+            None
+        }
+    };
+
+    // Initialize meeting detector
+    let meeting_detector = MeetingDetector::new(MeetingConfig::default());
+    info!("Meeting detection enabled");
+
     let state = Arc::new(AppState {
         store: Mutex::new(store),
         dedup: Mutex::new(dedup),
@@ -142,6 +169,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         file_watcher: Mutex::new(file_watcher),
         window_tracker: Mutex::new(window_tracker),
         clipboard_tracker: Mutex::new(clipboard_tracker),
+        hotkey_manager: Mutex::new(hotkey_manager),
+        meeting_detector: Mutex::new(meeting_detector),
     });
 
     // Spawn background task for file watching and idle detection
@@ -180,8 +209,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            // Check for window changes
-            let current_app = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
+            // Check for window changes and get current window for other trackers
+            let (current_app, current_window) = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
                 if let Some(ref mut tracker) = *tracker_guard {
                     if let Some(window_event) = tracker.check_active_window() {
                         // Record activity for idle detection
@@ -203,14 +232,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     }
-                    // Return current app name for clipboard context
-                    tracker.current_window().map(|w| w.app_name.clone())
+                    // Return current window for other trackers
+                    (
+                        tracker.current_window().map(|w| w.app_name.clone()),
+                        tracker.current_window().cloned(),
+                    )
                 } else {
-                    None
+                    (None, None)
                 }
             } else {
-                None
+                (None, None)
             };
+
+            // Check for meeting state changes
+            if let Ok(mut detector_guard) = state_clone.meeting_detector.try_lock() {
+                let meeting_events = detector_guard.check_window(current_window.as_ref());
+                for event in meeting_events {
+                    // Record activity for idle detection
+                    if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                        idle.record_activity("meeting");
+                    }
+
+                    // Store the meeting event
+                    if let Ok(store) = state_clone.store.lock() {
+                        let event_json = serde_json::to_string(&event).unwrap_or_default();
+                        if let Err(e) = store.insert_event(
+                            EventSource::Meeting,
+                            &event.event_type.to_string(),
+                            &event_json,
+                            None,
+                        ) {
+                            warn!("Failed to store meeting event: {}", e);
+                        }
+                    }
+                }
+            }
 
             // Check for clipboard changes
             if let Ok(mut tracker_guard) = state_clone.clipboard_tracker.try_lock() {
@@ -232,6 +288,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 None,
                             ) {
                                 warn!("Failed to store clipboard event: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for hotkey triggers
+            if let Ok(manager_guard) = state_clone.hotkey_manager.try_lock() {
+                if let Some(ref manager) = *manager_guard {
+                    for trigger in manager.poll_triggers() {
+                        info!("Hotkey triggered: {:?}", trigger.action);
+
+                        // Record activity for idle detection
+                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                            idle.record_activity("hotkey");
+                        }
+
+                        // Store the hotkey event
+                        if let Ok(store) = state_clone.store.lock() {
+                            let event_json =
+                                serde_json::to_string(&trigger).unwrap_or_default();
+                            if let Err(e) = store.insert_event(
+                                EventSource::Hotkey,
+                                &trigger.action.to_string(),
+                                &event_json,
+                                None,
+                            ) {
+                                warn!("Failed to store hotkey event: {}", e);
                             }
                         }
                     }

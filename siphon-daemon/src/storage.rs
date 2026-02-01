@@ -17,6 +17,8 @@ pub enum EventSource {
     Browser,
     Window,
     Clipboard,
+    Hotkey,
+    Meeting,
 }
 
 impl std::fmt::Display for EventSource {
@@ -29,6 +31,8 @@ impl std::fmt::Display for EventSource {
             EventSource::Browser => write!(f, "browser"),
             EventSource::Window => write!(f, "window"),
             EventSource::Clipboard => write!(f, "clipboard"),
+            EventSource::Hotkey => write!(f, "hotkey"),
+            EventSource::Meeting => write!(f, "meeting"),
         }
     }
 }
