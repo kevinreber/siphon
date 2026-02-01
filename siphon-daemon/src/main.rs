@@ -11,6 +11,7 @@ pub mod idle;
 pub mod meeting;
 pub mod redact;
 mod storage;
+pub mod summary;
 pub mod triggers;
 pub mod watcher;
 pub mod window;
@@ -213,9 +214,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let (current_app, current_window) = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
                 if let Some(ref mut tracker) = *tracker_guard {
                     if let Some(window_event) = tracker.check_active_window() {
-                        // Record activity for idle detection
+                        // Record activity for idle detection with app name for categorization
+                        let app_name = window_event.current.app_name.clone();
                         if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
-                            idle.record_activity("window_change");
+                            idle.record_activity_with_app("window_change", Some(&app_name));
                         }
 
                         // Store the window change event
@@ -247,6 +249,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Check for meeting state changes
             if let Ok(mut detector_guard) = state_clone.meeting_detector.try_lock() {
                 let meeting_events = detector_guard.check_window(current_window.as_ref());
+                let in_meeting = detector_guard.in_meeting();
+
+                // Sync meeting state with idle detector
+                if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                    idle.set_in_meeting(in_meeting);
+                }
+
                 for event in meeting_events {
                     // Record activity for idle detection
                     if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
@@ -368,6 +377,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/session", get(api::get_session_info))
         // Window tracking
         .route("/window", get(api::get_active_window))
+        // Meeting tracking
+        .route("/meeting", get(api::get_meeting_state))
+        // Summary/insights
+        .route("/summary", get(api::get_session_summary))
         // Query endpoints
         .route("/events", get(api::get_events))
         .route("/events/recent", get(api::get_recent_events))
