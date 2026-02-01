@@ -1,0 +1,35 @@
+# Systemd user service for Siphon daemon (Linux)
+#
+# Installation:
+#   cp siphon-daemon.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable siphon-daemon
+#   systemctl --user start siphon-daemon
+#
+# Commands:
+#   systemctl --user status siphon-daemon
+#   systemctl --user restart siphon-daemon
+#   journalctl --user -u siphon-daemon -f
+
+[Unit]
+Description=Siphon Daemon - Development activity tracker
+Documentation=https://github.com/kevinreber/siphon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/siphon-daemon
+Restart=on-failure
+RestartSec=5
+
+# Environment
+Environment=SIPHON_ENABLED=true
+Environment=SIPHON_RETENTION_DAYS=30
+# Environment=SIPHON_WATCH_PATHS=/path/to/project1:/path/to/project2
+
+# Resource limits (optional, adjust as needed)
+# MemoryMax=100M
+# CPUQuota=10%
+
+[Install]
+WantedBy=default.target
