@@ -49,6 +49,9 @@ dirs = "5"
 # Window tracking (macOS/Windows/Linux)
 active-win-pos-rs = "0.9"
 
+# Clipboard access
+arboard = "3"
+
 [profile.release]
 opt-level = 3
 lto = true

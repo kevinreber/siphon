@@ -16,6 +16,7 @@ pub enum EventSource {
     Git,
     Browser,
     Window,
+    Clipboard,
 }
 
 impl std::fmt::Display for EventSource {
@@ -27,6 +28,7 @@ impl std::fmt::Display for EventSource {
             EventSource::Git => write!(f, "git"),
             EventSource::Browser => write!(f, "browser"),
             EventSource::Window => write!(f, "window"),
+            EventSource::Clipboard => write!(f, "clipboard"),
         }
     }
 }

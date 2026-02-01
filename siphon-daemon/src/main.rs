@@ -4,6 +4,7 @@
 //! Runs on localhost:9847 and stores events in SQLite.
 
 mod api;
+pub mod clipboard;
 pub mod dedup;
 pub mod idle;
 pub mod redact;
@@ -24,6 +25,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
+use crate::clipboard::{ClipboardConfig, ClipboardTracker};
 use crate::dedup::{DedupConfig, Deduplicator};
 use crate::idle::{IdleConfig, IdleDetector};
 use crate::storage::{EventSource, EventStore};
@@ -37,6 +39,7 @@ pub struct AppState {
     pub idle_detector: Mutex<IdleDetector>,
     pub file_watcher: Mutex<Option<FileWatcher>>,
     pub window_tracker: Mutex<Option<WindowTracker>>,
+    pub clipboard_tracker: Mutex<Option<ClipboardTracker>>,
 }
 
 #[tokio::main]
@@ -117,12 +120,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(WindowTracker::new(WindowConfig::default()))
     };
 
+    // Initialize clipboard tracker (optional - disabled with SIPHON_DISABLE_CLIPBOARD_TRACKING=1)
+    let clipboard_tracker = if std::env::var("SIPHON_DISABLE_CLIPBOARD_TRACKING").is_ok() {
+        info!("Clipboard tracking disabled via environment variable");
+        None
+    } else {
+        let tracker = ClipboardTracker::new(ClipboardConfig::default());
+        if tracker.is_available() {
+            info!("Clipboard tracking enabled");
+            Some(tracker)
+        } else {
+            warn!("Clipboard tracking unavailable (no clipboard access)");
+            None
+        }
+    };
+
     let state = Arc::new(AppState {
         store: Mutex::new(store),
         dedup: Mutex::new(dedup),
         idle_detector: Mutex::new(idle_detector),
         file_watcher: Mutex::new(file_watcher),
         window_tracker: Mutex::new(window_tracker),
+        clipboard_tracker: Mutex::new(clipboard_tracker),
     });
 
     // Spawn background task for file watching and idle detection
@@ -162,7 +181,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Check for window changes
-            if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
+            let current_app = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
                 if let Some(ref mut tracker) = *tracker_guard {
                     if let Some(window_event) = tracker.check_active_window() {
                         // Record activity for idle detection
@@ -181,6 +200,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 None,
                             ) {
                                 warn!("Failed to store window event: {}", e);
+                            }
+                        }
+                    }
+                    // Return current app name for clipboard context
+                    tracker.current_window().map(|w| w.app_name.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Check for clipboard changes
+            if let Ok(mut tracker_guard) = state_clone.clipboard_tracker.try_lock() {
+                if let Some(ref mut tracker) = *tracker_guard {
+                    if let Some(clipboard_event) = tracker.check_clipboard(current_app) {
+                        // Record activity for idle detection
+                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                            idle.record_activity("clipboard");
+                        }
+
+                        // Store the clipboard change event
+                        if let Ok(store) = state_clone.store.lock() {
+                            let event_json =
+                                serde_json::to_string(&clipboard_event).unwrap_or_default();
+                            if let Err(e) = store.insert_event(
+                                EventSource::Clipboard,
+                                "clipboard_change",
+                                &event_json,
+                                None,
+                            ) {
+                                warn!("Failed to store clipboard event: {}", e);
                             }
                         }
                     }
