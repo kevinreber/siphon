@@ -4,7 +4,7 @@
 INSTALL_PREFIX ?= $(HOME)/.local/bin
 SHELL := /bin/bash
 
-.PHONY: all install install-cli install-daemon build build-cli build-daemon \
+.PHONY: all install install-cli install-daemon install-ui build build-cli build-daemon \
         clean uninstall start stop status help test-install
 
 # Default target
@@ -25,6 +25,7 @@ help:
 	@echo "  install        Full installation (build + install + setup service + hooks)"
 	@echo "  install-cli    Install only the CLI"
 	@echo "  install-daemon Install only the daemon"
+	@echo "  install-ui     Install the web dashboard to ~/.siphon/ui/"
 	@echo ""
 	@echo "Service targets:"
 	@echo "  start          Start the daemon service"
@@ -74,6 +75,13 @@ install-daemon: build-daemon
 	@chmod +x $(INSTALL_PREFIX)/siphon-daemon $(INSTALL_PREFIX)/siphon-ctl
 	@echo "Daemon installed: $(INSTALL_PREFIX)/siphon-daemon"
 	@echo "Control CLI installed: $(INSTALL_PREFIX)/siphon-ctl"
+
+install-ui:
+	@echo "Installing web dashboard..."
+	@mkdir -p $(HOME)/.siphon/ui
+	@cp siphon-ui/index.html siphon-ui/style.css siphon-ui/app.js $(HOME)/.siphon/ui/
+	@echo "Dashboard installed to ~/.siphon/ui/"
+	@echo "Open http://localhost:9847 in your browser (requires daemon running)"
 
 # Service management (detects OS automatically)
 start:

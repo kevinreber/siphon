@@ -18,7 +18,7 @@ path = "src/ctl.rs"
 # Web framework
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "fs"] }
 
 # Database
 rusqlite = { version = "0.31", features = ["bundled"] }

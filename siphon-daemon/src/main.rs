@@ -25,6 +25,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::interval;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -362,8 +363,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Resolve UI directory: check ~/.siphon/ui/ first, then bundled ui/ next to binary
+    let ui_dir = {
+        let home_ui = dirs::home_dir()
+            .map(|h| h.join(".siphon").join("ui"))
+            .unwrap_or_default();
+        let binary_ui = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("ui")))
+            .unwrap_or_default();
+        // Also check relative to working directory (for development)
+        let cwd_ui = std::env::current_dir()
+            .map(|d| d.join("siphon-ui"))
+            .unwrap_or_default();
+
+        if home_ui.join("index.html").exists() {
+            info!("Serving UI from {:?}", home_ui);
+            Some(home_ui)
+        } else if binary_ui.join("index.html").exists() {
+            info!("Serving UI from {:?}", binary_ui);
+            Some(binary_ui)
+        } else if cwd_ui.join("index.html").exists() {
+            info!("Serving UI from {:?}", cwd_ui);
+            Some(cwd_ui)
+        } else {
+            info!("No UI directory found (checked ~/.siphon/ui/, binary dir, cwd). Dashboard disabled.");
+            None
+        }
+    };
+
     // Build router
-    let app = Router::new()
+    let mut app = Router::new()
         // Health check
         .route("/health", get(api::health))
         // Event ingestion
@@ -390,6 +420,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/storage/cleanup", post(api::cleanup_events))
         .layer(cors)
         .with_state(state);
+
+    // Serve static UI files if directory exists
+    if let Some(ui_path) = ui_dir {
+        app = app.fallback_service(ServeDir::new(ui_path));
+    }
 
     // Bind to localhost only
     let addr = "127.0.0.1:9847";
