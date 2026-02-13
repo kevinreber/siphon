@@ -28,6 +28,21 @@ This document tracks planned features, ideas, and improvements for Siphon.
 - [ ] Git log integration
 - [ ] Browser history reader (Chrome/Firefox)
 
+### Web Dashboard
+- [x] Dashboard HTML/CSS/JS (no build step)
+- [x] Stats overview (total events, session duration, focus score, db size)
+- [x] Daily activity bar chart (last 14 days)
+- [x] Events by source breakdown
+- [x] Session summary with projects, apps, key activities
+- [x] Recent events list with source color coding
+- [x] Active window display
+- [x] Auto-refresh (15 second polling)
+- [x] Static file serving from daemon (tower-http ServeDir)
+- [x] `make install-ui` target
+- [ ] Content ideas panel (display ideas from daemon)
+- [ ] Time range picker for events view
+- [ ] Project filter/selector
+
 ---
 
 ## 📋 Planned (Phase 2 - Analysis)

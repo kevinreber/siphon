@@ -6,6 +6,7 @@ Background service for continuous activity capture. Runs on `localhost:9847` and
 
 - **Event ingestion** via HTTP API from shell hooks and editor extensions
 - **SQLite storage** with automatic project detection
+- **Web dashboard** served at `http://localhost:9847` — visual activity overview in the browser
 - **Control CLI** (`siphon-ctl`) for querying events and stats
 - **Sensitive data redaction** - API keys, passwords, and secrets are automatically redacted before storage
 - **Multi-shell support** - Hooks for Zsh, Bash, and Fish
@@ -39,6 +40,29 @@ This produces two binaries:
 # Get content ideas
 ./target/release/siphon-ctl ideas --hours 4
 ```
+
+## Web Dashboard
+
+The daemon serves a web dashboard at `http://localhost:9847`. Open it in your browser to see real-time session state, event stats, daily activity charts, and recent events.
+
+### Installing the dashboard
+
+```bash
+# From the repo root
+make install-ui
+```
+
+This copies the dashboard files to `~/.siphon/ui/`. The daemon automatically detects and serves them.
+
+During development, the daemon also checks for `siphon-ui/` relative to the working directory, so you can run the daemon from the repo root without installing.
+
+### Dashboard file resolution order
+
+1. `~/.siphon/ui/` (installed location)
+2. `ui/` next to the daemon binary
+3. `siphon-ui/` relative to current working directory (development)
+
+If no UI directory is found, the daemon runs without the dashboard (API-only mode).
 
 ## Shell Integration
 
@@ -90,11 +114,17 @@ Password manager commands (e.g., `pass`, `1password`) are skipped entirely and n
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check |
+| GET | `/` | Web dashboard (if installed) |
 | POST | `/events/shell` | Ingest shell command event |
 | POST | `/events/editor` | Ingest editor event |
+| POST | `/events/filesystem` | Ingest filesystem event |
 | GET | `/events` | Query events (params: `hours`, `source`, `project`) |
 | GET | `/events/recent` | Get events from last 2 hours |
+| GET | `/session` | Current session info (state, duration, event count) |
+| GET | `/summary` | Session summary (params: `hours`, default 8) |
 | GET | `/stats` | Get event statistics |
+| GET | `/window` | Current active window |
+| GET | `/meeting` | Current meeting state |
 | GET | `/storage` | Get storage info (size, event count, daily breakdown) |
 | POST | `/storage/cleanup` | Cleanup old events (params: `retention_days`, `vacuum`) |
 
