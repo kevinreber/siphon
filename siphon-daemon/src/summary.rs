@@ -240,15 +240,18 @@ impl SummaryGenerator {
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(&event.event_data) {
                     if let Some(current) = data.get("current") {
                         if let Some(app_name) = current.get("app_name").and_then(|v| v.as_str()) {
-                            let entry = apps.entry(app_name.to_string()).or_insert(AppUsageSummary {
-                                app_name: app_name.to_string(),
-                                duration_minutes: 0,
-                                window_switches: 0,
-                            });
+                            let entry =
+                                apps.entry(app_name.to_string()).or_insert(AppUsageSummary {
+                                    app_name: app_name.to_string(),
+                                    duration_minutes: 0,
+                                    window_switches: 0,
+                                });
                             entry.window_switches += 1;
 
                             // Estimate duration from previous window duration
-                            if let Some(duration) = data.get("previous_duration_ms").and_then(|v| v.as_u64()) {
+                            if let Some(duration) =
+                                data.get("previous_duration_ms").and_then(|v| v.as_u64())
+                            {
                                 entry.duration_minutes += (duration / 60000) as u32;
                             }
                         }
@@ -292,7 +295,10 @@ impl SummaryGenerator {
                                 description: "Pushed changes".to_string(),
                                 timestamp: event.timestamp,
                             });
-                        } else if cmd.starts_with("npm test") || cmd.starts_with("cargo test") || cmd.starts_with("pytest") {
+                        } else if cmd.starts_with("npm test")
+                            || cmd.starts_with("cargo test")
+                            || cmd.starts_with("pytest")
+                        {
                             activities.push(ActivitySummary {
                                 activity_type: "test".to_string(),
                                 description: "Ran tests".to_string(),
@@ -317,14 +323,17 @@ impl SummaryGenerator {
         for event in events {
             if event.source == "meeting" && event.event_type == "meeting_end" {
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(&event.event_data) {
-                    let platform = data.get("platform")
+                    let platform = data
+                        .get("platform")
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown")
                         .to_string();
-                    let title = data.get("title")
+                    let title = data
+                        .get("title")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
-                    let duration_minutes = data.get("duration_minutes")
+                    let duration_minutes = data
+                        .get("duration_minutes")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0) as u32;
 
@@ -371,11 +380,14 @@ impl SummaryGenerator {
         }
 
         // Bonus for productive activities
-        let productive_events = events.iter().filter(|e| {
-            e.source == "editor" ||
-            (e.source == "shell" && e.event_type == "command") ||
-            e.source == "filesystem"
-        }).count();
+        let productive_events = events
+            .iter()
+            .filter(|e| {
+                e.source == "editor"
+                    || (e.source == "shell" && e.event_type == "command")
+                    || e.source == "filesystem"
+            })
+            .count();
 
         let productivity_ratio = productive_events as f64 / events.len() as f64;
         if productivity_ratio > 0.5 {
@@ -407,19 +419,13 @@ impl SummaryGenerator {
 
         // Projects
         if !projects.is_empty() {
-            let project_names: Vec<_> = projects.iter()
-                .take(3)
-                .map(|p| p.name.clone())
-                .collect();
+            let project_names: Vec<_> = projects.iter().take(3).map(|p| p.name.clone()).collect();
             parts.push(format!("Projects: {}", project_names.join(", ")));
         }
 
         // Top apps
         if !apps.is_empty() {
-            let app_names: Vec<_> = apps.iter()
-                .take(3)
-                .map(|a| a.app_name.clone())
-                .collect();
+            let app_names: Vec<_> = apps.iter().take(3).map(|a| a.app_name.clone()).collect();
             parts.push(format!("Main apps: {}", app_names.join(", ")));
         }
 
@@ -427,11 +433,17 @@ impl SummaryGenerator {
         if !meetings.is_empty() {
             let meeting_count = meetings.len();
             let total_meeting_mins: u32 = meetings.iter().map(|m| m.duration_minutes).sum();
-            parts.push(format!("{} meeting(s), {} minutes total", meeting_count, total_meeting_mins));
+            parts.push(format!(
+                "{} meeting(s), {} minutes total",
+                meeting_count, total_meeting_mins
+            ));
         }
 
         // Key activities
-        let commits = activities.iter().filter(|a| a.activity_type == "commit").count();
+        let commits = activities
+            .iter()
+            .filter(|a| a.activity_type == "commit")
+            .count();
         if commits > 0 {
             parts.push(format!("{} commit(s)", commits));
         }

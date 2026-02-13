@@ -54,30 +54,25 @@ const SOURCE_EXTENSIONS: &[&str] = &[
     // Config/data formats
     "yaml", "yml", "json", "toml", "xml", "html", "css", "scss", "sass", "less",
     // Documentation
-    "md", "mdx", "txt", "rst", "adoc",
-    // Frontend frameworks
+    "md", "mdx", "txt", "rst", "adoc", // Frontend frameworks
     "vue", "svelte",
 ];
 
 /// File extensions for creative/design work
 const CREATIVE_EXTENSIONS: &[&str] = &[
     // Adobe Creative Suite
-    "psd", "ai", "indd", "xd", "aep", "prproj",
-    // Image formats
+    "psd", "ai", "indd", "xd", "aep", "prproj", // Image formats
     "png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "tiff", "tif", "bmp", "raw", "cr2", "nef",
     // Design tools
-    "sketch", "fig", "afdesign", "afphoto", "afpub",
-    // 3D modeling
+    "sketch", "fig", "afdesign", "afphoto", "afpub", // 3D modeling
     "blend", "fbx", "obj", "stl", "3mf", "gltf", "glb", "dae", "3ds", "max", "ma", "mb", "c4d",
     // 3D printing / CAD
     "gcode", "step", "stp", "iges", "igs", "dwg", "dxf", "scad", "f3d", "fusion",
     // Video
-    "mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv",
-    // Audio
+    "mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", // Audio
     "mp3", "wav", "flac", "aac", "ogg", "m4a", "aiff",
     // Audio production (DAW projects)
-    "als", "flp", "logic", "ptx", "rpp", "cpr",
-    // Documents
+    "als", "flp", "logic", "ptx", "rpp", "cpr", // Documents
     "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "pages", "numbers", "key",
 ];
 

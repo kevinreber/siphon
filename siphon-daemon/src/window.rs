@@ -123,10 +123,7 @@ impl WindowTracker {
         self.last_check_time = Instant::now();
 
         // Get current active window
-        let current = match self.get_active_window() {
-            Some(w) => w,
-            None => return None,
-        };
+        let current = self.get_active_window()?;
 
         // Check if window changed (compare app_name and title)
         let changed = match &self.last_window {
@@ -196,7 +193,7 @@ impl WindowTracker {
                 Some(WindowInfo {
                     app_name,
                     title: window.title,
-                    process_id: window.process_id as u64,
+                    process_id: window.process_id,
                     bundle_id: Some(bundle_id),
                     url,
                     bounds: Some(WindowBounds {
@@ -223,7 +220,7 @@ impl WindowTracker {
             Ok(window) => Some(WindowInfo {
                 app_name: window.app_name,
                 title: window.title,
-                process_id: window.process_id as u64,
+                process_id: window.process_id,
                 bundle_id: None,
                 url: None, // URL extraction only supported on macOS for now
                 bounds: Some(WindowBounds {
@@ -275,9 +272,7 @@ impl WindowTracker {
 
         // Build AppleScript based on browser
         let script = match browser {
-            "Safari" => {
-                r#"tell application "Safari" to get URL of front document"#.to_string()
-            }
+            "Safari" => r#"tell application "Safari" to get URL of front document"#.to_string(),
             "Firefox" => {
                 // Firefox doesn't support AppleScript URL access well
                 return None;
@@ -292,15 +287,10 @@ impl WindowTracker {
         };
 
         // Execute AppleScript
-        match Command::new("osascript")
-            .args(["-e", &script])
-            .output()
-        {
+        match Command::new("osascript").args(["-e", &script]).output() {
             Ok(output) => {
                 if output.status.success() {
-                    let url = String::from_utf8_lossy(&output.stdout)
-                        .trim()
-                        .to_string();
+                    let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
                     if !url.is_empty() && url != "missing value" {
                         Some(url)
                     } else {

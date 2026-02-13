@@ -50,48 +50,64 @@ impl ActivityCategory {
         let app_lower = app_name.to_lowercase();
 
         // IDEs and code editors
-        if app_lower.contains("code") || app_lower.contains("vim") || app_lower.contains("emacs")
-            || app_lower.contains("idea") || app_lower.contains("xcode")
-            || app_lower.contains("sublime") || app_lower.contains("atom")
+        if app_lower.contains("code")
+            || app_lower.contains("vim")
+            || app_lower.contains("emacs")
+            || app_lower.contains("idea")
+            || app_lower.contains("xcode")
+            || app_lower.contains("sublime")
+            || app_lower.contains("atom")
             || app_lower.contains("cursor")
         {
             return ActivityCategory::Coding;
         }
 
         // Communication tools
-        if app_lower.contains("slack") || app_lower.contains("teams")
-            || app_lower.contains("mail") || app_lower.contains("outlook")
-            || app_lower.contains("messages") || app_lower.contains("discord")
+        if app_lower.contains("slack")
+            || app_lower.contains("teams")
+            || app_lower.contains("mail")
+            || app_lower.contains("outlook")
+            || app_lower.contains("messages")
+            || app_lower.contains("discord")
         {
             return ActivityCategory::Communication;
         }
 
         // Meeting apps
-        if app_lower.contains("zoom") || app_lower.contains("meet")
-            || app_lower.contains("facetime") || app_lower.contains("webex")
+        if app_lower.contains("zoom")
+            || app_lower.contains("meet")
+            || app_lower.contains("facetime")
+            || app_lower.contains("webex")
         {
             return ActivityCategory::Meeting;
         }
 
         // Creative apps
-        if app_lower.contains("photoshop") || app_lower.contains("illustrator")
-            || app_lower.contains("figma") || app_lower.contains("sketch")
-            || app_lower.contains("blender") || app_lower.contains("premiere")
+        if app_lower.contains("photoshop")
+            || app_lower.contains("illustrator")
+            || app_lower.contains("figma")
+            || app_lower.contains("sketch")
+            || app_lower.contains("blender")
+            || app_lower.contains("premiere")
         {
             return ActivityCategory::Creative;
         }
 
         // Browsers (could be research or distraction)
-        if app_lower.contains("chrome") || app_lower.contains("safari")
-            || app_lower.contains("firefox") || app_lower.contains("arc")
+        if app_lower.contains("chrome")
+            || app_lower.contains("safari")
+            || app_lower.contains("firefox")
+            || app_lower.contains("arc")
             || app_lower.contains("edge")
         {
             return ActivityCategory::Research;
         }
 
         // Terminal
-        if app_lower.contains("terminal") || app_lower.contains("iterm")
-            || app_lower.contains("warp") || app_lower.contains("alacritty")
+        if app_lower.contains("terminal")
+            || app_lower.contains("iterm")
+            || app_lower.contains("warp")
+            || app_lower.contains("alacritty")
             || app_lower.contains("kitty")
         {
             return ActivityCategory::Terminal;

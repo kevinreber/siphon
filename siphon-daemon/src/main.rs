@@ -212,40 +212,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Check for window changes and get current window for other trackers
-            let (current_app, current_window) = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
-                if let Some(ref mut tracker) = *tracker_guard {
-                    if let Some(window_event) = tracker.check_active_window() {
-                        // Record activity for idle detection with app name for categorization
-                        let app_name = window_event.current.app_name.clone();
-                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
-                            idle.record_activity_with_app("window_change", Some(&app_name));
-                        }
+            let (current_app, current_window) =
+                if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
+                    if let Some(ref mut tracker) = *tracker_guard {
+                        if let Some(window_event) = tracker.check_active_window() {
+                            // Record activity for idle detection with app name for categorization
+                            let app_name = window_event.current.app_name.clone();
+                            if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                                idle.record_activity_with_app("window_change", Some(&app_name));
+                            }
 
-                        // Store the window change event
-                        if let Ok(store) = state_clone.store.lock() {
-                            let event_json =
-                                serde_json::to_string(&window_event).unwrap_or_default();
-                            if let Err(e) = store.insert_event(
-                                EventSource::Window,
-                                "window_change",
-                                &event_json,
-                                None,
-                            ) {
-                                warn!("Failed to store window event: {}", e);
+                            // Store the window change event
+                            if let Ok(store) = state_clone.store.lock() {
+                                let event_json =
+                                    serde_json::to_string(&window_event).unwrap_or_default();
+                                if let Err(e) = store.insert_event(
+                                    EventSource::Window,
+                                    "window_change",
+                                    &event_json,
+                                    None,
+                                ) {
+                                    warn!("Failed to store window event: {}", e);
+                                }
                             }
                         }
+                        // Return current window for other trackers
+                        (
+                            tracker.current_window().map(|w| w.app_name.clone()),
+                            tracker.current_window().cloned(),
+                        )
+                    } else {
+                        (None, None)
                     }
-                    // Return current window for other trackers
-                    (
-                        tracker.current_window().map(|w| w.app_name.clone()),
-                        tracker.current_window().cloned(),
-                    )
                 } else {
                     (None, None)
-                }
-            } else {
-                (None, None)
-            };
+                };
 
             // Check for meeting state changes
             if let Ok(mut detector_guard) = state_clone.meeting_detector.try_lock() {
@@ -317,8 +318,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // Store the hotkey event
                         if let Ok(store) = state_clone.store.lock() {
-                            let event_json =
-                                serde_json::to_string(&trigger).unwrap_or_default();
+                            let event_json = serde_json::to_string(&trigger).unwrap_or_default();
                             if let Err(e) = store.insert_event(
                                 EventSource::Hotkey,
                                 &trigger.action.to_string(),
