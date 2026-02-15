@@ -256,30 +256,25 @@ static API_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)(sk|pk|api|key|token|secret|auth)[_-]?[a-z0-9]{20,}").unwrap()
 });
 
-static JWT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*").unwrap()
-});
+static JWT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*").unwrap());
 
-static GITHUB_TOKEN_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"gh[pousr]_[a-zA-Z0-9]{36,}").unwrap()
-});
+static GITHUB_TOKEN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"gh[pousr]_[a-zA-Z0-9]{36,}").unwrap());
 
-static AWS_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"AKIA[0-9A-Z]{16}").unwrap()
-});
+static AWS_KEY_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"AKIA[0-9A-Z]{16}").unwrap());
 
-static PRIVATE_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----").unwrap()
-});
+static PRIVATE_KEY_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----").unwrap());
 
 static CREDIT_CARD_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     // Basic credit card pattern (not comprehensive, but catches common formats)
     Regex::new(r"\b[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}\b").unwrap()
 });
 
-static SSN_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b").unwrap()
-});
+static SSN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b").unwrap());
 
 /// Redact sensitive content from clipboard text
 fn redact_sensitive_content(text: &str) -> (String, bool) {
@@ -370,8 +365,7 @@ mod tests {
 
     #[test]
     fn test_redact_api_key() {
-        let (result, redacted) =
-            redact_sensitive_content("api_key_abcdef123456789012345");
+        let (result, redacted) = redact_sensitive_content("api_key_abcdef123456789012345");
         assert!(redacted);
         assert!(result.contains("[REDACTED"));
     }
@@ -387,8 +381,7 @@ mod tests {
 
     #[test]
     fn test_redact_github_token() {
-        let (result, redacted) =
-            redact_sensitive_content("ghp_abcdefghijklmnopqrstuvwxyz123456");
+        let (result, redacted) = redact_sensitive_content("ghp_abcdefghijklmnopqrstuvwxyz123456");
         assert!(redacted);
         assert!(result.contains("[REDACTED"));
     }

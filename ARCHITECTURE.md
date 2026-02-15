@@ -40,12 +40,17 @@ Siphon is a two-layer system: a **capture layer** that collects development even
           │  GET /events    │   │  GET /clusters  │
           │  GET /recent    │   │  GET /ideas     │
           └─────────────────┘   └─────────────────┘
-                    │                     │
-                    ▼                     ▼
-          ┌─────────────────┐   ┌─────────────────┐
-          │  siphon-ctl     │   │  Content        │
-          │  (Rust CLI)     │   │  Generator (TS) │
-          └─────────────────┘   └─────────────────┘
+               │    │                     │
+               │    │                     ▼
+               │    │           ┌─────────────────┐
+               │    │           │  Content        │
+               │    │           │  Generator (TS) │
+               │    │           └─────────────────┘
+               ▼    ▼
+    ┌────────────┐ ┌─────────────────┐
+    │siphon-ctl  │ │  Web Dashboard  │
+    │(Rust CLI)  │ │  (Browser UI)   │
+    └────────────┘ └─────────────────┘
 ```
 
 ## Components
@@ -61,6 +66,8 @@ The daemon is the core of the continuous capture system. It runs in the backgrou
 **Event clustering** via a lightweight topic extraction algorithm. Events are grouped by inferred topic (based on commands, file extensions, URLs visited) and scored by intensity (event count, time span, source diversity). This is intentionally simple — the heavy analysis lives in the TypeScript layer where LLM integration is easier.
 
 **HTTP API** using Axum for both event ingestion and querying. The API runs on `127.0.0.1:9847` (localhost only) so external access isn't possible. CORS is enabled for the VS Code extension's webview requests.
+
+**Web dashboard serving** via `tower-http`'s `ServeDir`. The daemon serves the web dashboard as static files on the same port. API routes take priority; unmatched paths fall back to static file serving from `~/.siphon/ui/` (or the bundled `siphon-ui/` directory during development). This means the dashboard requires zero additional processes or configuration.
 
 #### Daemon Process Model
 
@@ -111,6 +118,23 @@ A TypeScript extension that tracks editor-level activity:
 - Debug session starts and stops
 
 Events are sent to the daemon's HTTP API. The extension includes a status bar item showing connection state and commands for viewing activity and ideas directly in VS Code.
+
+### Web Dashboard (`siphon-ui`)
+
+A lightweight web interface served directly by the daemon at `http://localhost:9847`. Built with plain HTML, CSS, and vanilla JavaScript — no build step, no framework, no npm dependencies.
+
+The dashboard displays:
+- **Session state** — active/idle/offline status badge
+- **Stats overview** — total events, session duration, focus score, database size
+- **Daily activity chart** — bar chart of events per day over the last 14 days
+- **Events by source** — horizontal bar breakdown (shell, editor, filesystem, etc.)
+- **Session summary** — projects, applications, key activities, meetings
+- **Recent events** — scrollable list of the last 50 events with source indicators
+- **Active window** — current focused application
+
+The dashboard auto-refreshes every 15 seconds by polling the daemon's existing API endpoints (`/stats`, `/events/recent`, `/summary`, `/session`, `/storage`, `/window`). No WebSocket connection is needed.
+
+UI files are resolved in priority order: `~/.siphon/ui/` > binary-adjacent `ui/` directory > `siphon-ui/` relative to CWD (for development).
 
 ## Data Flow
 
@@ -200,6 +224,7 @@ The daemon listens only on `127.0.0.1:9847`. There is no outbound network traffi
 │  Shell Hook ──POST──► Daemon :9847       │
 │  VS Code Ext ─POST──►   │               │
 │  siphon-ctl ──GET───►   │               │
+│  Browser ────GET────►   │  (dashboard)  │
 │                          │               │
 │                     SQLite File          │
 │                  ~/.siphon/              │

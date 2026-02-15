@@ -156,7 +156,7 @@ This document records the key technical decisions made during the development of
 - **Simplicity.** No auth flows, no API keys, no rate limits, no "server is down" errors.
 - **Speed.** Everything is a local file read or localhost HTTP call. Queries are instantaneous.
 
-**Tradeoff:** No cross-device sync. No web dashboard. No collaborative features. These could be added later as opt-in features, but the core tool must work fully offline.
+**Tradeoff:** No cross-device sync. No collaborative features. These could be added later as opt-in features, but the core tool must work fully offline. (Note: a local-only web dashboard was later added — see Decision 011. It runs on localhost and doesn't change the local-only commitment.)
 
 ---
 
@@ -192,3 +192,26 @@ This document records the key technical decisions made during the development of
 - **No API key requirement.** The tool works fully without any AI service. The `--prompt` flag is an enhancement for users who want it.
 
 **Future consideration:** An optional Claude API integration could be added behind a config flag, but it should never be required.
+
+---
+
+## 011: Web dashboard served by the daemon
+
+**Date:** February 2026
+
+**Context:** The project was CLI-only, which works well for developers but creates a barrier for non-technical users (content creators, advocates) who want to see what's being tracked. Decision 008 originally noted "no web dashboard" as a tradeoff. Three approaches were evaluated: embedded web UI, terminal UI (TUI), and a Tauri desktop app. See `docs/UI_OPTIONS.md` for the full evaluation.
+
+**Decision:** Serve a lightweight web dashboard directly from the existing Axum daemon as static files. Plain HTML + CSS + vanilla JavaScript, no build step, no framework.
+
+**Rationale:**
+- **Zero new dependencies for users.** The daemon already runs Axum. Adding `tower-http`'s `ServeDir` is one line in `Cargo.toml`. Users just open a browser tab.
+- **No new process.** The dashboard is served on the same `localhost:9847` port. No extra binary to install, no new service to manage.
+- **Stays local-only.** The dashboard runs on localhost, reads from the same API endpoints that `siphon-ctl` uses. No data leaves the machine. This doesn't violate the spirit of Decision 008.
+- **No build step.** Plain HTML/CSS/JS means anyone can edit the dashboard without needing Node.js, webpack, or any toolchain. The files are served as-is.
+- **Incrementally adoptable.** The dashboard is optional. If `~/.siphon/ui/` doesn't exist, the daemon works exactly as before. `make install-ui` copies the files.
+
+**Why not a TUI:** The stated goal was accessibility for non-technical users. TUIs are still intimidating for people outside the terminal.
+
+**Why not Tauri:** Adds significant build complexity (platform-specific signing, installer generation) and another artifact to distribute. The daemon already provides everything the UI needs via HTTP. If we later need native OS features (system tray, notifications), Tauri is the natural evolution since the web frontend carries over directly.
+
+**Tradeoff:** Requires a browser to be open. No native OS integration (system tray, notifications). But these are acceptable for an initial version, and the web UI foundation works with Tauri if we upgrade later.

@@ -18,7 +18,13 @@ const MEETING_APPS: &[MeetingAppPattern] = &[
         platform: MeetingPlatform::Zoom,
     },
     MeetingAppPattern {
-        app_name_contains: &["Google Chrome", "Arc", "Safari", "Firefox", "Microsoft Edge"],
+        app_name_contains: &[
+            "Google Chrome",
+            "Arc",
+            "Safari",
+            "Firefox",
+            "Microsoft Edge",
+        ],
         title_patterns: &["Meet -", "Google Meet", "meet.google.com"],
         platform: MeetingPlatform::GoogleMeet,
     },
@@ -103,7 +109,7 @@ impl std::fmt::Display for MeetingPlatform {
 }
 
 /// Current meeting state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MeetingState {
     /// Whether currently in a meeting
     pub in_meeting: bool,
@@ -113,17 +119,6 @@ pub struct MeetingState {
     pub started_at: Option<DateTime<Utc>>,
     /// Meeting title (from window title, may contain participant info)
     pub title: Option<String>,
-}
-
-impl Default for MeetingState {
-    fn default() -> Self {
-        Self {
-            in_meeting: false,
-            platform: None,
-            started_at: None,
-            title: None,
-        }
-    }
 }
 
 /// Event emitted when meeting state changes
@@ -212,32 +207,36 @@ impl MeetingDetector {
                     // We're in a meeting window
                     self.last_meeting_activity = Some(Instant::now());
 
-                    if self.potential_meeting_start.is_none() {
+                    if let Some(start) = self.potential_meeting_start {
+                        if !self.current_state.in_meeting {
+                            // Check if we've been in meeting long enough
+                            let elapsed = start.elapsed();
+                            if elapsed.as_secs() >= self.config.min_meeting_duration_secs {
+                                // Confirmed meeting
+                                self.current_state = MeetingState {
+                                    in_meeting: true,
+                                    platform: Some(platform.clone()),
+                                    started_at: Some(
+                                        Utc::now() - Duration::seconds(elapsed.as_secs() as i64),
+                                    ),
+                                    title: title.clone(),
+                                };
+                                self.emitted_start = true;
+
+                                info!("Meeting started: {} - {:?}", platform, title);
+                                events.push(MeetingEvent {
+                                    event_type: MeetingEventType::MeetingStart,
+                                    platform,
+                                    title,
+                                    duration_minutes: None,
+                                    timestamp: self.current_state.started_at.unwrap(),
+                                });
+                            }
+                        }
+                    } else {
                         // First time seeing meeting activity
                         self.potential_meeting_start = Some(Instant::now());
                         debug!("Potential meeting detected: {:?}", platform);
-                    } else if !self.current_state.in_meeting {
-                        // Check if we've been in meeting long enough
-                        let elapsed = self.potential_meeting_start.unwrap().elapsed();
-                        if elapsed.as_secs() >= self.config.min_meeting_duration_secs {
-                            // Confirmed meeting
-                            self.current_state = MeetingState {
-                                in_meeting: true,
-                                platform: Some(platform.clone()),
-                                started_at: Some(Utc::now() - Duration::seconds(elapsed.as_secs() as i64)),
-                                title: title.clone(),
-                            };
-                            self.emitted_start = true;
-
-                            info!("Meeting started: {} - {:?}", platform, title);
-                            events.push(MeetingEvent {
-                                event_type: MeetingEventType::MeetingStart,
-                                platform,
-                                title,
-                                duration_minutes: None,
-                                timestamp: self.current_state.started_at.unwrap(),
-                            });
-                        }
                     }
                 } else {
                     // Not in a meeting window
@@ -259,7 +258,9 @@ impl MeetingDetector {
             if last_activity.elapsed().as_secs() >= self.config.grace_period_secs {
                 // Meeting ended
                 if self.current_state.in_meeting && self.emitted_start {
-                    let duration = self.current_state.started_at
+                    let duration = self
+                        .current_state
+                        .started_at
                         .map(|start| (Utc::now() - start).num_minutes() as u32);
 
                     info!(
@@ -269,7 +270,11 @@ impl MeetingDetector {
 
                     events.push(MeetingEvent {
                         event_type: MeetingEventType::MeetingEnd,
-                        platform: self.current_state.platform.clone().unwrap_or(MeetingPlatform::Unknown),
+                        platform: self
+                            .current_state
+                            .platform
+                            .clone()
+                            .unwrap_or(MeetingPlatform::Unknown),
                         title: self.current_state.title.clone(),
                         duration_minutes: duration,
                         timestamp: Utc::now(),
@@ -292,7 +297,9 @@ impl MeetingDetector {
 
         for pattern in MEETING_APPS {
             // Check app name
-            let app_matches = pattern.app_name_contains.iter()
+            let app_matches = pattern
+                .app_name_contains
+                .iter()
                 .any(|p| app_name.contains(&p.to_lowercase()));
 
             if !app_matches {
@@ -300,7 +307,9 @@ impl MeetingDetector {
             }
 
             // Check title patterns
-            let title_matches = pattern.title_patterns.iter()
+            let title_matches = pattern
+                .title_patterns
+                .iter()
                 .any(|p| title.contains(&p.to_lowercase()));
 
             // For browser-based meetings (Google Meet), require title match

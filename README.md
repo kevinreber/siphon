@@ -41,7 +41,7 @@ Developers learn valuable things every day but rarely turn that knowledge into c
 
 ## Components
 
-This project has two main components that work together:
+This project has three main components that work together:
 
 ### 📋 CLI Tool (`siphon-cli/`)
 
@@ -80,10 +80,25 @@ siphon-ctl ideas --hours 4
 
 **Tech:** Rust, SQLite, Axum
 
+### 🖥️ Web Dashboard (`siphon-ui/`)
+
+Visual dashboard served directly by the daemon. Open `http://localhost:9847` in your browser to see real-time activity, session summaries, and event breakdowns — no extra install needed.
+
+```bash
+# Install the dashboard
+make install-ui
+
+# Then open in your browser
+open http://localhost:9847
+```
+
+**Tech:** Plain HTML, CSS, vanilla JavaScript (no build step)
+
 ### 🔗 Integrations
 
 | Integration | Location | Purpose |
 |-------------|----------|---------|
+| Web Dashboard | `siphon-ui/` | Visual activity dashboard at `localhost:9847` |
 | Zsh Hook | `siphon-daemon/hooks/siphon-hook.zsh` | Real-time shell command capture |
 | VS Code Extension | `siphon-daemon/vscode-extension/` | Editor activity tracking |
 | Browser Extension | _Planned_ | Search and browsing capture |
@@ -136,7 +151,7 @@ siphon/
 │
 ├── siphon-daemon/             # Rust background daemon
 │   ├── src/
-│   │   ├── main.rs            # Daemon entry point
+│   │   ├── main.rs            # Daemon entry point + static file serving
 │   │   ├── ctl.rs             # Control CLI (siphon-ctl)
 │   │   ├── api.rs             # HTTP API server
 │   │   ├── storage.rs         # SQLite persistence
@@ -146,9 +161,15 @@ siphon/
 │   ├── Cargo.toml
 │   └── README.md
 │
+├── siphon-ui/                 # Web dashboard (served by daemon)
+│   ├── index.html             # Dashboard layout
+│   ├── style.css              # Dark theme styles
+│   └── app.js                 # API client and rendering
+│
 └── docs/
     ├── ARCHITECTURE.md        # System design deep dive
     ├── DECISIONS.md           # Why we made key technical choices
+    ├── UI_OPTIONS.md          # UI approach evaluation
     └── VISION.md              # Where this project is headed
 ```
 
@@ -193,6 +214,7 @@ That's it! The installer will:
 
 ```bash
 make install          # Full installation
+make install-ui       # Install web dashboard
 make build            # Build without installing
 make start            # Start the daemon
 make stop             # Stop the daemon
@@ -221,6 +243,9 @@ source ~/.zshrc  # or ~/.bashrc
 # Verify everything is working
 siphon-ctl status     # Should show "Daemon is running"
 siphon status         # Quick overview of recent activity
+
+# Open the web dashboard
+open http://localhost:9847
 
 # After working for a while...
 siphon capture        # Analyze your session and get content ideas

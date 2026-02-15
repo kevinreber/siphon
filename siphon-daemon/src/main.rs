@@ -25,6 +25,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::time::interval;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -211,40 +212,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Check for window changes and get current window for other trackers
-            let (current_app, current_window) = if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
-                if let Some(ref mut tracker) = *tracker_guard {
-                    if let Some(window_event) = tracker.check_active_window() {
-                        // Record activity for idle detection with app name for categorization
-                        let app_name = window_event.current.app_name.clone();
-                        if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
-                            idle.record_activity_with_app("window_change", Some(&app_name));
-                        }
+            let (current_app, current_window) =
+                if let Ok(mut tracker_guard) = state_clone.window_tracker.try_lock() {
+                    if let Some(ref mut tracker) = *tracker_guard {
+                        if let Some(window_event) = tracker.check_active_window() {
+                            // Record activity for idle detection with app name for categorization
+                            let app_name = window_event.current.app_name.clone();
+                            if let Ok(mut idle) = state_clone.idle_detector.try_lock() {
+                                idle.record_activity_with_app("window_change", Some(&app_name));
+                            }
 
-                        // Store the window change event
-                        if let Ok(store) = state_clone.store.lock() {
-                            let event_json =
-                                serde_json::to_string(&window_event).unwrap_or_default();
-                            if let Err(e) = store.insert_event(
-                                EventSource::Window,
-                                "window_change",
-                                &event_json,
-                                None,
-                            ) {
-                                warn!("Failed to store window event: {}", e);
+                            // Store the window change event
+                            if let Ok(store) = state_clone.store.lock() {
+                                let event_json =
+                                    serde_json::to_string(&window_event).unwrap_or_default();
+                                if let Err(e) = store.insert_event(
+                                    EventSource::Window,
+                                    "window_change",
+                                    &event_json,
+                                    None,
+                                ) {
+                                    warn!("Failed to store window event: {}", e);
+                                }
                             }
                         }
+                        // Return current window for other trackers
+                        (
+                            tracker.current_window().map(|w| w.app_name.clone()),
+                            tracker.current_window().cloned(),
+                        )
+                    } else {
+                        (None, None)
                     }
-                    // Return current window for other trackers
-                    (
-                        tracker.current_window().map(|w| w.app_name.clone()),
-                        tracker.current_window().cloned(),
-                    )
                 } else {
                     (None, None)
-                }
-            } else {
-                (None, None)
-            };
+                };
 
             // Check for meeting state changes
             if let Ok(mut detector_guard) = state_clone.meeting_detector.try_lock() {
@@ -316,8 +318,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         // Store the hotkey event
                         if let Ok(store) = state_clone.store.lock() {
-                            let event_json =
-                                serde_json::to_string(&trigger).unwrap_or_default();
+                            let event_json = serde_json::to_string(&trigger).unwrap_or_default();
                             if let Err(e) = store.insert_event(
                                 EventSource::Hotkey,
                                 &trigger.action.to_string(),
@@ -362,8 +363,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Resolve UI directory: check ~/.siphon/ui/ first, then bundled ui/ next to binary
+    let ui_dir = {
+        let home_ui = dirs::home_dir()
+            .map(|h| h.join(".siphon").join("ui"))
+            .unwrap_or_default();
+        let binary_ui = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("ui")))
+            .unwrap_or_default();
+        // Also check relative to working directory (for development)
+        let cwd_ui = std::env::current_dir()
+            .map(|d| d.join("siphon-ui"))
+            .unwrap_or_default();
+
+        if home_ui.join("index.html").exists() {
+            info!("Serving UI from {:?}", home_ui);
+            Some(home_ui)
+        } else if binary_ui.join("index.html").exists() {
+            info!("Serving UI from {:?}", binary_ui);
+            Some(binary_ui)
+        } else if cwd_ui.join("index.html").exists() {
+            info!("Serving UI from {:?}", cwd_ui);
+            Some(cwd_ui)
+        } else {
+            info!("No UI directory found (checked ~/.siphon/ui/, binary dir, cwd). Dashboard disabled.");
+            None
+        }
+    };
+
     // Build router
-    let app = Router::new()
+    let mut app = Router::new()
         // Health check
         .route("/health", get(api::health))
         // Event ingestion
@@ -390,6 +420,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/storage/cleanup", post(api::cleanup_events))
         .layer(cors)
         .with_state(state);
+
+    // Serve static UI files if directory exists
+    if let Some(ui_path) = ui_dir {
+        app = app.fallback_service(ServeDir::new(ui_path));
+    }
 
     // Bind to localhost only
     let addr = "127.0.0.1:9847";

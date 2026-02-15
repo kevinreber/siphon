@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Siphon</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>Siphon</h1>
+      <span class="subtitle">Activity Tracker</span>
+    </div>
+    <div class="header-right">
+      <span id="session-badge" class="badge badge-offline">offline</span>
+      <span id="last-updated" class="meta-text"></span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Top stats row -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="total-events">--</div>
+        <div class="stat-label">Total Events</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="session-duration">--</div>
+        <div class="stat-label">Session Duration</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="focus-score">--</div>
+        <div class="stat-label">Focus Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="db-size">--</div>
+        <div class="stat-label">Database Size</div>
+      </div>
+    </section>
+
+    <!-- Main content grid -->
+    <section class="content-grid">
+      <!-- Left column -->
+      <div class="column-left">
+        <!-- Activity timeline -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Daily Activity</h2>
+            <span class="meta-text" id="activity-range"></span>
+          </div>
+          <div class="card-body">
+            <div id="daily-chart" class="bar-chart"></div>
+          </div>
+        </div>
+
+        <!-- Events by source -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Events by Source</h2>
+          </div>
+          <div class="card-body">
+            <div id="source-breakdown" class="source-bars"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="column-right">
+        <!-- Session summary -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Session Summary</h2>
+            <select id="summary-hours" class="select-small">
+              <option value="2">Last 2h</option>
+              <option value="4">Last 4h</option>
+              <option value="8" selected>Last 8h</option>
+              <option value="24">Last 24h</option>
+            </select>
+          </div>
+          <div class="card-body" id="summary-content">
+            <p class="placeholder-text">Loading...</p>
+          </div>
+        </div>
+
+        <!-- Recent events -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Recent Events</h2>
+            <span class="meta-text" id="recent-count"></span>
+          </div>
+          <div class="card-body">
+            <div id="recent-events" class="event-list">
+              <p class="placeholder-text">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active window -->
+        <div class="card card-compact">
+          <div class="card-header">
+            <h2>Active Window</h2>
+          </div>
+          <div class="card-body" id="active-window">
+            <p class="placeholder-text">Loading...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Siphon &middot; All data stays on your machine</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

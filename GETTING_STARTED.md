@@ -61,7 +61,17 @@ siphon-ctl status
 # Events collected: 0
 ```
 
-### 3. Do Some Work
+### 3. Open the Dashboard (Optional)
+
+Open `http://localhost:9847` in your browser to see the web dashboard. It shows real-time session state, event stats, and activity charts. The dashboard auto-refreshes every 15 seconds.
+
+If the dashboard isn't available, install it with:
+
+```bash
+make install-ui
+```
+
+### 4. Do Some Work
 
 Use your terminal normally for a few minutes:
 
@@ -72,7 +82,7 @@ git status
 npm run test
 ```
 
-### 4. Capture Your Activity
+### 5. Capture Your Activity
 
 ```bash
 # See what Siphon captured
@@ -165,7 +175,26 @@ siphon capture --time 1h --verbose
 # - Git operations
 ```
 
-### Example 6: Using the Daemon Control CLI
+### Example 6: Using the Web Dashboard
+
+Open the visual dashboard in your browser for a real-time overview:
+
+```bash
+# Open the dashboard (daemon must be running)
+open http://localhost:9847
+
+# The dashboard shows:
+# - Session state (active/idle/offline)
+# - Total events, focus score, database size
+# - Daily activity chart
+# - Events by source breakdown
+# - Session summary with projects and apps
+# - Recent events feed
+```
+
+The dashboard auto-refreshes every 15 seconds. Use the time range selector on the session summary card to adjust the analysis window.
+
+### Example 7: Using the Daemon Control CLI
 
 Query the daemon directly for real-time data:
 
@@ -221,6 +250,13 @@ siphon-ctl ideas --hours 4
 | `siphon-ctl events --hours 2` | View recent events |
 | `siphon-ctl stats` | Event statistics |
 | `siphon-ctl ideas --hours 4` | Get content ideas from daemon |
+
+### Web Dashboard
+
+| URL/Command | Description |
+|-------------|-------------|
+| `http://localhost:9847` | Open the web dashboard |
+| `make install-ui` | Install dashboard to `~/.siphon/ui/` |
 
 ### Shell Utilities
 
@@ -298,10 +334,11 @@ rm -rf ~/.siphon
 ## Next Steps
 
 1. **Use Siphon for a week** - Let it passively collect data as you work normally
-2. **Run `siphon capture` daily** - Check in at the end of each work session
-3. **Try AI generation** - Set up your Anthropic API key and use `--generate`
-4. **Explore your data** - Open `~/.siphon/events.db` in a SQLite browser
-5. **Read the architecture** - Check out [ARCHITECTURE.md](./ARCHITECTURE.md) to understand the system
+2. **Check the dashboard** - Open `http://localhost:9847` to see your activity visualized
+3. **Run `siphon capture` daily** - Check in at the end of each work session
+4. **Try AI generation** - Set up your Anthropic API key and use `--generate`
+5. **Explore your data** - Open `~/.siphon/events.db` in a SQLite browser
+6. **Read the architecture** - Check out [ARCHITECTURE.md](./ARCHITECTURE.md) to understand the system
 
 ---
 

@@ -86,6 +86,7 @@ Get the data collection right. The TypeScript CLI captures on-demand from existi
 - [x] Rust daemon with HTTP API
 - [x] Zsh shell hook
 - [x] VS Code extension
+- [x] Web dashboard (served by daemon at localhost:9847)
 - [ ] Browser extension for real-time search capture
 - [ ] Fish shell hook
 - [ ] Neovim plugin
@@ -135,4 +136,4 @@ Connect to the content creation workflow.
 
 **Not a productivity tool.** We're not here to optimize your workflow or tell you you're spending too much time on Reddit. We're here to find the stories in your work.
 
-**Not a surveillance tool.** This runs on your machine, for you. There's no management dashboard, no team analytics, no "employee monitoring" use case. If anyone asks for that, the answer is no.
+**Not a surveillance tool.** This runs on your machine, for you. The web dashboard is a personal tool on localhost — there's no team analytics, no "employee monitoring" use case. If anyone asks for that, the answer is no.
