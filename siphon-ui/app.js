@@ -344,6 +344,159 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// ── Navigation ──────────────────────────────────────────────────────
+
+function navigateTo(page) {
+  // Update nav links
+  document.querySelectorAll(".nav-link").forEach(function(link) {
+    link.classList.toggle("active", link.dataset.page === page);
+  });
+
+  // Toggle views
+  document.querySelectorAll(".view").forEach(function(view) {
+    view.classList.remove("active");
+  });
+
+  var viewEl = document.getElementById("view-" + page);
+  if (viewEl) {
+    viewEl.classList.add("active");
+  }
+
+  // Render build logs when navigating to What's New
+  if (page === "whats-new") {
+    renderBuildLogs();
+  }
+}
+
+function handleRoute() {
+  var hash = window.location.hash.replace("#", "") || "dashboard";
+  navigateTo(hash);
+}
+
+window.addEventListener("hashchange", handleRoute);
+
+// ── Build Logs (What's New) ─────────────────────────────────────────
+
+var BUILD_LOGS = [
+  {
+    version: "0.8.0",
+    date: "2026-02-14",
+    tag: "New Feature",
+    title: "Meeting Detection",
+    description: "Siphon now automatically detects when you're in a meeting on Zoom, Google Meet, or Microsoft Teams. Meeting time is tracked separately so you can see how much of your day is spent in calls versus focused work."
+  },
+  {
+    version: "0.7.2",
+    date: "2026-02-10",
+    tag: "Improvement",
+    title: "Smarter Focus Score",
+    description: "The Focus Score now accounts for context switching between applications. Fewer switches and longer focused sessions contribute to a higher score, giving you a more accurate picture of your deep work time."
+  },
+  {
+    version: "0.7.0",
+    date: "2026-02-03",
+    tag: "New Feature",
+    title: "Session Summaries",
+    description: "Get a quick recap of what you've been working on. Session summaries show your active projects, most-used applications, and key activities for the last 2, 4, 8, or 24 hours."
+  },
+  {
+    version: "0.6.1",
+    date: "2026-01-28",
+    tag: "Improvement",
+    title: "Faster Dashboard Loading",
+    description: "The dashboard now loads data in parallel, so you'll see your stats, charts, and events appear much faster than before."
+  },
+  {
+    version: "0.6.0",
+    date: "2026-01-20",
+    tag: "New Feature",
+    title: "Daily Activity Chart",
+    description: "A new bar chart on the dashboard shows your event activity over the past 14 days. Hover over any bar to see the exact count for that day."
+  },
+  {
+    version: "0.5.3",
+    date: "2026-01-15",
+    tag: "Fix",
+    title: "Window Tracking Reliability",
+    description: "Fixed an issue where the active window tracker would occasionally stop updating. Window tracking is now more reliable across all supported platforms."
+  },
+  {
+    version: "0.5.0",
+    date: "2026-01-08",
+    tag: "New Feature",
+    title: "Browser Activity Tracking",
+    description: "Siphon can now track your browser activity, showing which sites and tabs you spend time on. All data stays local on your machine."
+  },
+  {
+    version: "0.4.2",
+    date: "2025-12-30",
+    tag: "Improvement",
+    title: "Events by Source Breakdown",
+    description: "The dashboard now includes a visual breakdown of your events by source (shell, editor, filesystem, etc.), making it easy to see where your activity is concentrated."
+  },
+  {
+    version: "0.4.0",
+    date: "2025-12-18",
+    tag: "New Feature",
+    title: "Clipboard Monitoring",
+    description: "Optionally track clipboard activity to see how often you're copying and pasting throughout your workflow. This feature is off by default and can be enabled in settings."
+  },
+  {
+    version: "0.3.0",
+    date: "2025-12-05",
+    tag: "New Feature",
+    title: "Git Integration",
+    description: "Siphon now monitors your git activity including commits, branch switches, and pushes. See your version control workflow alongside your other activities."
+  },
+  {
+    version: "0.2.0",
+    date: "2025-11-20",
+    tag: "New Feature",
+    title: "Real-Time Dashboard",
+    description: "Introducing the Siphon web dashboard. View your activity stats, recent events, and active window information at a glance. The dashboard auto-refreshes every 15 seconds."
+  },
+  {
+    version: "0.1.0",
+    date: "2025-11-01",
+    tag: "New Feature",
+    title: "Initial Release",
+    description: "The first release of Siphon! Track shell commands and editor activity automatically. All data is stored locally in a SQLite database on your machine."
+  }
+];
+
+function formatBuildDate(dateStr) {
+  var d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString([], { year: "numeric", month: "long", day: "numeric" });
+}
+
+function renderBuildLogs() {
+  var container = document.getElementById("build-logs");
+  var html = "";
+
+  for (var i = 0; i < BUILD_LOGS.length; i++) {
+    var log = BUILD_LOGS[i];
+    var tagClass = "tag-feature";
+    if (log.tag === "Improvement") tagClass = "tag-improvement";
+    else if (log.tag === "Fix") tagClass = "tag-fix";
+
+    html += '<div class="build-log-entry">';
+    html += '<div class="build-log-meta">';
+    html += '<span class="build-log-date">' + formatBuildDate(log.date) + '</span>';
+    html += '<span class="build-log-version">v' + escapeHtml(log.version) + '</span>';
+    html += '</div>';
+    html += '<div class="build-log-content">';
+    html += '<div class="build-log-title-row">';
+    html += '<span class="build-log-tag ' + tagClass + '">' + escapeHtml(log.tag) + '</span>';
+    html += '<h3 class="build-log-title">' + escapeHtml(log.title) + '</h3>';
+    html += '</div>';
+    html += '<p class="build-log-description">' + escapeHtml(log.description) + '</p>';
+    html += '</div>';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
 // ── Initialization ──────────────────────────────────────────────────
 
 async function refreshAll() {
@@ -362,6 +515,7 @@ async function refreshAll() {
 
 // Initial load
 refreshAll();
+handleRoute();
 
 // Auto-refresh every 15 seconds
 setInterval(refreshAll, 15000);
