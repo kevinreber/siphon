@@ -10,7 +10,10 @@
   <header>
     <div class="header-left">
       <h1>Siphon</h1>
-      <span class="subtitle">Activity Tracker</span>
+      <nav class="header-nav">
+        <a href="#dashboard" class="nav-link active" data-page="dashboard">Dashboard</a>
+        <a href="#whats-new" class="nav-link" data-page="whats-new">What's New</a>
+      </nav>
     </div>
     <div class="header-right">
       <span id="session-badge" class="badge badge-offline">offline</span>
@@ -19,6 +22,8 @@
   </header>
 
   <main>
+    <!-- Dashboard view -->
+    <div id="view-dashboard" class="view active">
     <!-- Top stats row -->
     <section class="stats-row">
       <div class="stat-card">
@@ -107,6 +112,16 @@
         </div>
       </div>
     </section>
+    </div>
+
+    <!-- What's New view -->
+    <div id="view-whats-new" class="view">
+      <div class="whats-new-header">
+        <h2>What's New</h2>
+        <p class="whats-new-subtitle">Latest features and improvements in Siphon</p>
+      </div>
+      <div id="build-logs" class="build-logs"></div>
+    </div>
   </main>
 
   <footer>
