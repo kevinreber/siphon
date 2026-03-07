@@ -1,31 +1,32 @@
 {
-  "$schema": "https://claude.ai/code/settings-schema.json",
   "hooks": {
-    "pre-commit": [
+    "PreToolUse": [
       {
-        "name": "TypeScript Type Check",
-        "command": "cd siphon-cli && npm run typecheck",
-        "description": "Run TypeScript type checking before commit"
+        "matcher": "Bash(git commit*)",
+        "command": "cd siphon-cli && npm run typecheck && npx biome check src && cd ../siphon-daemon && cargo fmt --check && cargo clippy -- -D warnings",
+        "description": "Run TypeScript + Biome + Rust checks before committing"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit(siphon-cli/src/**/*.ts)",
+        "command": "cd siphon-cli && npx biome format src --write --quiet 2>&1 | tail -5 || true",
+        "description": "Auto-format TypeScript files with Biome after edits"
       },
       {
-        "name": "Biome Lint & Format",
-        "command": "cd siphon-cli && npx biome check src",
-        "description": "Run Biome linting and formatting checks"
+        "matcher": "Write(siphon-cli/src/**/*.ts)",
+        "command": "cd siphon-cli && npx biome format src --write --quiet 2>&1 | tail -5 || true",
+        "description": "Auto-format new TypeScript files with Biome"
       },
       {
-        "name": "Rust Cargo Check",
-        "command": "cd siphon-daemon && cargo check",
-        "description": "Run Rust cargo check"
+        "matcher": "Edit(siphon-daemon/src/**/*.rs)",
+        "command": "cd siphon-daemon && cargo fmt --quiet 2>&1 | tail -5 || true",
+        "description": "Auto-format Rust files after edits"
       },
       {
-        "name": "Rust Format Check",
-        "command": "cd siphon-daemon && cargo fmt --check",
-        "description": "Check Rust code formatting"
-      },
-      {
-        "name": "Rust Clippy",
-        "command": "cd siphon-daemon && cargo clippy -- -D warnings",
-        "description": "Run Rust clippy linter"
+        "matcher": "Write(siphon-daemon/src/**/*.rs)",
+        "command": "cd siphon-daemon && cargo fmt --quiet 2>&1 | tail -5 || true",
+        "description": "Auto-format new Rust files"
       }
     ]
   }
