@@ -1,0 +1,203 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build daemon binaries
+        run: |
+          cd siphon-daemon
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build CLI
+        run: |
+          cd siphon-cli
+          npm ci
+          npm run build
+
+      - name: Package release
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          ARCHIVE="siphon-${TAG}-${{ matrix.target }}"
+          mkdir -p "${ARCHIVE}/bin"
+
+          # Daemon binaries
+          cp siphon-daemon/target/${{ matrix.target }}/release/siphon-daemon "${ARCHIVE}/bin/"
+          cp siphon-daemon/target/${{ matrix.target }}/release/siphon-ctl "${ARCHIVE}/bin/"
+
+          # CLI (bundled JS + wrapper script)
+          cp -r siphon-cli/dist "${ARCHIVE}/siphon-cli-dist"
+          cp siphon-cli/package.json "${ARCHIVE}/siphon-cli-dist/"
+          cat > "${ARCHIVE}/bin/siphon" << 'WRAPPER'
+          #!/usr/bin/env bash
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          exec node "${SCRIPT_DIR}/../siphon-cli-dist/cli.js" "$@"
+          WRAPPER
+          chmod +x "${ARCHIVE}/bin/siphon"
+
+          # UI files
+          mkdir -p "${ARCHIVE}/share/siphon-ui"
+          cp siphon-ui/index.html siphon-ui/style.css siphon-ui/app.js "${ARCHIVE}/share/siphon-ui/"
+
+          # Shell hooks
+          mkdir -p "${ARCHIVE}/share/hooks"
+          cp siphon-daemon/hooks/siphon-hook.zsh "${ARCHIVE}/share/hooks/" 2>/dev/null || true
+
+          tar -czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
+          echo "ARCHIVE=${ARCHIVE}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: siphon-${{ matrix.target }}
+          path: ${{ env.ARCHIVE }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # Collect all tarballs
+          FILES=$(find artifacts -name '*.tar.gz' -type f)
+          gh release create "${TAG}" ${FILES} \
+            --title "${TAG}" \
+            --generate-notes
+
+  update-homebrew:
+    name: Update Homebrew Tap
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+
+          # Download the source tarball and compute SHA
+          curl -sL "https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz" -o source.tar.gz
+          SHA256=$(shasum -a 256 source.tar.gz | awk '{print $1}')
+
+          # Download platform-specific tarballs and compute SHAs
+          declare -A SHAS
+          for target in x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu; do
+            curl -sL "https://github.com/${{ github.repository }}/releases/download/${TAG}/siphon-${TAG}-${target}.tar.gz" -o "${target}.tar.gz"
+            SHAS[${target}]=$(shasum -a 256 "${target}.tar.gz" | awk '{print $1}')
+          done
+
+          # Clone the tap repo
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+
+          # Write the formula
+          cat > tap/Formula/siphon.rb << FORMULA
+          class Siphon < Formula
+            desc "Developer content generation tool — track activity, surface content ideas"
+            homepage "https://github.com/${{ github.repository }}"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/${{ github.repository }}/releases/download/${TAG}/siphon-${TAG}-aarch64-apple-darwin.tar.gz"
+                sha256 "${SHAS[aarch64-apple-darwin]}"
+              else
+                url "https://github.com/${{ github.repository }}/releases/download/${TAG}/siphon-${TAG}-x86_64-apple-darwin.tar.gz"
+                sha256 "${SHAS[x86_64-apple-darwin]}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/${{ github.repository }}/releases/download/${TAG}/siphon-${TAG}-x86_64-unknown-linux-gnu.tar.gz"
+              sha256 "${SHAS[x86_64-unknown-linux-gnu]}"
+            end
+
+            depends_on "node"
+
+            def install
+              bin.install "bin/siphon-daemon"
+              bin.install "bin/siphon-ctl"
+
+              # Install CLI JS bundle and wrapper
+              libexec.install "siphon-cli-dist"
+              (bin/"siphon").write_env_script libexec/"siphon-cli-dist/cli.js", PATH: "#{Formula["node"].opt_bin}:\$PATH"
+
+              # Install UI files
+              (share/"siphon-ui").install Dir["share/siphon-ui/*"]
+
+              # Install shell hooks
+              (share/"siphon/hooks").install Dir["share/hooks/*"]
+            end
+
+            def post_install
+              (var/"siphon").mkpath
+            end
+
+            service do
+              run [opt_bin/"siphon-daemon"]
+              keep_alive true
+              log_path var/"log/siphon-daemon.log"
+              error_log_path var/"log/siphon-daemon.log"
+            end
+
+            test do
+              assert_match "siphon", shell_output("#{bin}/siphon-ctl --help")
+            end
+          end
+          FORMULA
+
+          # Commit and push
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/siphon.rb
+          git commit -m "siphon ${VERSION}"
+          git push
