@@ -4,6 +4,7 @@
 //! Runs on localhost:9847 and stores events in SQLite.
 
 mod api;
+pub mod claude_code;
 pub mod clipboard;
 pub mod dedup;
 pub mod hotkey;
@@ -29,6 +30,7 @@ use tower_http::services::ServeDir;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
+use crate::claude_code::{ClaudeCodeConfig, ClaudeCodeTracker};
 use crate::clipboard::{ClipboardConfig, ClipboardTracker};
 use crate::dedup::{DedupConfig, Deduplicator};
 use crate::hotkey::{HotkeyConfig, HotkeyManager};
@@ -48,6 +50,7 @@ pub struct AppState {
     pub clipboard_tracker: Mutex<Option<ClipboardTracker>>,
     pub hotkey_manager: Mutex<Option<HotkeyManager>>,
     pub meeting_detector: Mutex<MeetingDetector>,
+    pub claude_code_tracker: Mutex<Option<ClaudeCodeTracker>>,
 }
 
 #[tokio::main]
@@ -164,6 +167,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let meeting_detector = MeetingDetector::new(MeetingConfig::default());
     info!("Meeting detection enabled");
 
+    // Initialize Claude Code tracker
+    let claude_code_tracker = if std::env::var("SIPHON_DISABLE_CLAUDE_CODE_TRACKING").is_ok() {
+        info!("Claude Code tracking disabled via environment variable");
+        None
+    } else {
+        let config = ClaudeCodeConfig::default();
+        let tracker = ClaudeCodeTracker::new(config);
+        if tracker.is_available() {
+            info!("Claude Code tracking enabled");
+            Some(tracker)
+        } else {
+            info!("Claude Code tracking unavailable (~/.claude not found)");
+            None
+        }
+    };
+
     let state = Arc::new(AppState {
         store: Mutex::new(store),
         dedup: Mutex::new(dedup),
@@ -173,6 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         clipboard_tracker: Mutex::new(clipboard_tracker),
         hotkey_manager: Mutex::new(hotkey_manager),
         meeting_detector: Mutex::new(meeting_detector),
+        claude_code_tracker: Mutex::new(claude_code_tracker),
     });
 
     // Spawn background task for file watching and idle detection
@@ -349,6 +369,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     &event_json,
                                     None,
                                 );
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for Claude Code activity (tracker has its own 5s interval)
+            if let Ok(mut tracker_guard) = state_clone.claude_code_tracker.try_lock() {
+                if let Some(ref mut tracker) = *tracker_guard {
+                    let events = tracker.poll();
+                    if !events.is_empty() {
+                        if let Ok(store) = state_clone.store.lock() {
+                            for event in events {
+                                if let Err(e) = store.insert_event(
+                                    EventSource::ClaudeCode,
+                                    &event.event_type,
+                                    &event.data.to_string(),
+                                    event.project.as_deref(),
+                                ) {
+                                    warn!("Failed to store Claude Code event: {}", e);
+                                }
                             }
                         }
                     }

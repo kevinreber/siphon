@@ -2059,6 +2059,7 @@ dependencies = [
  "clap",
  "dirs",
  "global-hotkey",
+ "libc",
  "notify",
  "regex",
  "reqwest",

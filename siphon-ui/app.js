@@ -47,6 +47,7 @@ const SOURCE_COLORS = {
   clipboard: "source-clipboard",
   hotkey: "source-hotkey",
   meeting: "source-meeting",
+  claude_code: "source-claude-code",
 };
 
 async function fetchJSON(path) {
@@ -329,6 +330,12 @@ function getEventDisplayText(evt) {
         return data.action || "Hotkey triggered";
       case "meeting":
         return (data.event_type || evt.event_type) + " - " + (data.platform || "");
+      case "claude_code":
+        if (evt.event_type === "claude_prompt") return data.prompt_preview || "Claude prompt";
+        if (evt.event_type === "claude_tool_use") return "Claude used " + (data.tool_name || "tool") + (data.project ? " in " + data.project : "");
+        if (evt.event_type === "claude_session_start") return "Claude session started" + (data.cwd ? " in " + data.cwd.split("/").pop() : "");
+        if (evt.event_type === "claude_session_end") return "Claude session ended (" + formatDuration(data.duration_minutes) + ")";
+        return evt.event_type;
       default:
         return evt.event_type;
     }
