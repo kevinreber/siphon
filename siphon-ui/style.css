@@ -455,7 +455,30 @@ main {
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 6px;
+  background: var(--text-dim);
 }
+
+.event-source-icon.source-shell { background: #4ade80; }
+.event-source-icon.source-editor { background: #60a5fa; }
+.event-source-icon.source-filesystem { background: #facc15; }
+.event-source-icon.source-window { background: #a78bfa; }
+.event-source-icon.source-git { background: #fb923c; }
+.event-source-icon.source-browser { background: #38bdf8; }
+.event-source-icon.source-clipboard { background: #2dd4bf; }
+.event-source-icon.source-hotkey { background: #f87171; }
+.event-source-icon.source-meeting { background: #c084fc; }
+.event-source-icon.source-claude-code { background: #f97316; }
+
+.source-bar-fill.source-shell { background: #4ade80; }
+.source-bar-fill.source-editor { background: #60a5fa; }
+.source-bar-fill.source-filesystem { background: #facc15; }
+.source-bar-fill.source-window { background: #a78bfa; }
+.source-bar-fill.source-git { background: #fb923c; }
+.source-bar-fill.source-browser { background: #38bdf8; }
+.source-bar-fill.source-clipboard { background: #2dd4bf; }
+.source-bar-fill.source-hotkey { background: #f87171; }
+.source-bar-fill.source-meeting { background: #c084fc; }
+.source-bar-fill.source-claude-code { background: #f97316; }
 
 .event-body {
   flex: 1;

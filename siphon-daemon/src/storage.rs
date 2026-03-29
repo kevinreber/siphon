@@ -19,6 +19,7 @@ pub enum EventSource {
     Clipboard,
     Hotkey,
     Meeting,
+    ClaudeCode,
 }
 
 impl std::fmt::Display for EventSource {
@@ -33,6 +34,7 @@ impl std::fmt::Display for EventSource {
             EventSource::Clipboard => write!(f, "clipboard"),
             EventSource::Hotkey => write!(f, "hotkey"),
             EventSource::Meeting => write!(f, "meeting"),
+            EventSource::ClaudeCode => write!(f, "claude_code"),
         }
     }
 }
