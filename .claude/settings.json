@@ -3,30 +3,50 @@
     "PreToolUse": [
       {
         "matcher": "Bash(git commit*)",
-        "command": "cd siphon-cli && npm run typecheck && npx biome check src && cd ../siphon-daemon && cargo fmt --check && cargo clippy -- -D warnings",
-        "description": "Run TypeScript + Biome + Rust checks before committing"
+        "hooks": [
+          {
+            "command": "cd siphon-cli && npm run typecheck && npx biome check src && cd ../siphon-daemon && cargo fmt --check && cargo clippy -- -D warnings",
+            "description": "Run TypeScript + Biome + Rust checks before committing"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Edit(siphon-cli/src/**/*.ts)",
-        "command": "cd siphon-cli && npx biome format src --write --quiet 2>&1 | tail -5 || true",
-        "description": "Auto-format TypeScript files with Biome after edits"
+        "hooks": [
+          {
+            "command": "cd siphon-cli && npx biome format src --write --quiet 2>&1 | tail -5 || true",
+            "description": "Auto-format TypeScript files with Biome after edits"
+          }
+        ]
       },
       {
         "matcher": "Write(siphon-cli/src/**/*.ts)",
-        "command": "cd siphon-cli && npx biome format src --write --quiet 2>&1 | tail -5 || true",
-        "description": "Auto-format new TypeScript files with Biome"
+        "hooks": [
+          {
+            "command": "cd siphon-cli && npx biome format src --write --quiet 2>&1 | tail -5 || true",
+            "description": "Auto-format new TypeScript files with Biome"
+          }
+        ]
       },
       {
         "matcher": "Edit(siphon-daemon/src/**/*.rs)",
-        "command": "cd siphon-daemon && cargo fmt --quiet 2>&1 | tail -5 || true",
-        "description": "Auto-format Rust files after edits"
+        "hooks": [
+          {
+            "command": "cd siphon-daemon && cargo fmt --quiet 2>&1 | tail -5 || true",
+            "description": "Auto-format Rust files after edits"
+          }
+        ]
       },
       {
         "matcher": "Write(siphon-daemon/src/**/*.rs)",
-        "command": "cd siphon-daemon && cargo fmt --quiet 2>&1 | tail -5 || true",
-        "description": "Auto-format new Rust files"
+        "hooks": [
+          {
+            "command": "cd siphon-daemon && cargo fmt --quiet 2>&1 | tail -5 || true",
+            "description": "Auto-format new Rust files"
+          }
+        ]
       }
     ]
   }
